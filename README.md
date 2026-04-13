@@ -4,7 +4,7 @@
 
 CunyFirstZero is an AI-enabled College Management System (CMS) designed to streamline academic and administrative workflows within a college environment.
 
-The platform supports the full lifecycle of students and instructors—from application and registration to grading and graduation—while integrating AI-powered assistance using Retrieval-Augmented Generation (RAG) and Large Language Models (LLMs).
+The platform supports the full lifecycle of students and instructors, from application and registration to grading and graduation, while integrating AI-powered assistance using Retrieval-Augmented Generation (RAG) and Large Language Models (LLMs).
 
 
 ---
