@@ -1,0 +1,43 @@
+@startuml
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+participant "Backend" as BE
+database "Database" as DB
+
+Student -> SYS : submit selected section IDs
+SYS -> BE : register_student(student_id, sections)
+BE -> BE : check_registration_period()
+
+alt registration closed
+    BE --> Student : error: registration is closed
+else registration open
+    BE -> BE : check_course_load()
+    alt count < 2 or > 4
+        BE --> Student : error: invalid course load
+    else valid load
+        BE -> BE : has_duplicate_courses()
+        BE -> BE : has_time_conflict()
+        alt duplicates or conflict found
+            BE --> Student : error: duplicates or time conflict
+        else all checks pass
+            BE -> DB : check_capacity(each section)
+            DB --> BE : capacity status per section
+            loop for each section
+                alt space available
+                    BE -> DB : enroll_student()
+                    DB --> BE : enrollment confirmed
+                else section full
+                    BE -> DB : add_to_waitlist()
+                    DB --> BE : waitlist position confirmed
+                end
+            end
+            BE --> SYS : enrolled + waitlisted sections
+            SYS --> Student : display registration result
+        end
+    end
+end
+@enduml
