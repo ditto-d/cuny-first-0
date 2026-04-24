@@ -1,0 +1,34 @@
+@startuml
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+participant "Backend" as BE
+database "Database" as DB
+
+Student -> SYS : select 2–4 courses
+SYS -> BE : generate_schedules(course_ids)
+
+alt course count < 2 or > 4
+    BE --> SYS : error: invalid course count
+    SYS --> Student : reject request
+else valid count
+    BE -> DB : get_sections(each course)
+    alt a course has no sections
+        DB --> BE : empty section list
+        BE --> Student : error: no sections for course
+    else all courses have sections
+        DB --> BE : sections per course
+        BE -> BE : generate_combinations()
+        BE -> BE : filter: has_time_conflict()
+        alt no valid schedules remain
+            BE --> Student : return empty schedule list
+        else valid schedules exist
+            BE --> SYS : valid schedule list
+            SYS --> Student : display valid schedules
+        end
+    end
+end
+@enduml
