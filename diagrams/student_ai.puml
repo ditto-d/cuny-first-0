@@ -1,0 +1,44 @@
+@startuml
+
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+participant "Backend" as BE
+database "Student Records" as SR
+database "Vector DB\n(Student-Allowed Context)" as VDB
+participant "LLM Service" as LLM
+
+Student -> SYS : submit question
+SYS -> BE : process_student_query(student_id, question)
+BE -> SR : retrieve enrolled classes(student_id)
+SR --> BE : enrolled class list
+BE -> BE : restrict context to general info\nand student's enrolled classes
+BE -> VDB : search_allowed_context(question, enrolled_classes)
+
+alt local answer found
+    VDB --> BE : local answer
+    BE --> SYS : answer from local information
+    SYS --> Student : display answer
+else question outside allowed context
+    VDB --> BE : restricted or unauthorized context
+    BE --> SYS : access-limited response
+    SYS --> Student : display restricted answer message
+else no local answer found
+    VDB --> BE : no answer found
+    BE -> LLM : send question for possible answer
+
+    alt LLM returns answer
+        LLM --> BE : possible answer
+        BE --> SYS : answer + hallucination warning
+        SYS --> Student : display answer with warning
+    else LLM fails
+        LLM --> BE : error
+        BE --> SYS : unable-to-answer message
+        SYS --> Student : display fallback message
+    end
+end
+
+@enduml
