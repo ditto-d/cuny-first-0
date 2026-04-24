@@ -1,0 +1,44 @@
+@startuml
+
+
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Admin
+participant "System" as SYS
+participant "Backend" as BE
+database "Database" as DB
+
+Admin -> SYS : request academic warning evaluation
+SYS -> BE : evaluate_academic_warning(student_id)
+
+BE -> DB : retrieve student records and GPA data
+
+alt GPA data available
+    DB --> BE : student GPA data
+    BE -> BE : compare GPA against threshold
+
+    alt GPA below threshold
+        BE -> DB : create warning record
+        alt warning stored
+            DB --> BE : warning confirmation
+            BE --> SYS : warning issued
+            SYS --> Admin : display warning confirmation
+        else warning creation fails
+            DB --> BE : error
+            BE --> SYS : error message
+            SYS --> Admin : display error message
+        end
+    else GPA meets threshold
+        BE --> SYS : no warning needed
+        SYS --> Admin : display no warning result
+    end
+
+else GPA data unavailable
+    DB --> BE : no GPA data
+    BE --> SYS : no warning issued
+    SYS --> Admin : display GPA unavailable message
+end
+
+@enduml
