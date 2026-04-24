@@ -1,0 +1,23 @@
+@startuml
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+database "Database" as DB
+
+Student -> SYS : access sections page
+SYS -> DB : get_sections(semester)
+
+alt sections exist
+    DB --> SYS : section list
+    SYS --> Student : display sections\n(ID, course, instructor, time slot, capacity)
+else no sections available
+    DB --> SYS : empty list
+    SYS --> Student : display no sections message
+else retrieval fails
+    DB --> SYS : error
+    SYS --> Student : display error message
+end
+@enduml
