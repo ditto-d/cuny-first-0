@@ -1,0 +1,25 @@
+@startuml
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam NoteFontSize 11
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+database "Database" as DB
+
+Student -> SYS : access course catalog page
+SYS -> DB : get_courses()
+
+alt courses exist
+    DB --> SYS : course list
+    SYS --> Student : display courses\n(ID, title, credits, description)
+else no courses exist
+    DB --> SYS : empty list
+    SYS --> Student : display empty catalog message
+else retrieval fails
+    DB --> SYS : error
+    SYS --> Student : display error message
+end
+@enduml
