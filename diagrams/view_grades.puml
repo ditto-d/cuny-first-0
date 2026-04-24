@@ -1,0 +1,31 @@
+@startuml
+
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+participant "Backend" as BE
+database "Database" as DB
+
+Student -> SYS : access grades page
+SYS -> BE : get_grades(student_id)
+BE -> DB : retrieve enrollments for student
+
+alt enrollments with grades exist
+    DB --> BE : graded enrollment records
+    BE -> BE : extract grades
+    BE --> SYS : course IDs, section IDs, grades
+    SYS --> Student : display grades
+else no grades exist
+    DB --> BE : empty grade list
+    BE --> SYS : empty grade list
+    SYS --> Student : display no grades message
+else retrieval fails
+    DB --> BE : error
+    BE --> SYS : error message
+    SYS --> Student : display error message
+end
+
+@enduml
