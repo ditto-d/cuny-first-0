@@ -1,0 +1,37 @@
+@startuml
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+database "Database" as DB
+
+Student -> SYS : attempt to register\n(section is full)
+SYS -> DB : check if already on waitlist()
+
+alt student already on waitlist
+    DB --> SYS : already exists
+    SYS --> Student : error: already on waitlist
+else not on waitlist
+    SYS -> DB : add_to_waitlist(student_id, section)
+    DB --> SYS : waitlist position confirmed
+    SYS --> Student : display waitlist position
+end
+
+note over SYS : later — another student drops the course
+
+SYS -> DB : drop_student(student_id, section)
+DB --> SYS : student removed from roster
+SYS -> DB : check_waitlist(section)
+
+alt waitlist not empty
+    DB --> SYS : next student on waitlist
+    SYS -> DB : promote_student() → enroll
+    DB --> SYS : enrollment updated
+    SYS --> Student : notify: promoted to enrolled
+else waitlist empty
+    DB --> SYS : empty waitlist
+    note over SYS : seat remains open for registration
+end
+@enduml
