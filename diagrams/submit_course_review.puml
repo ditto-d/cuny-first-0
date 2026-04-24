@@ -1,0 +1,48 @@
+@startuml
+
+
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+participant "Backend" as BE
+database "Database" as DB
+
+Student -> SYS : open course review page
+Student -> SYS : submit rating and comment
+SYS -> BE : submit_review(student_id, course_id, rating, comment)
+BE -> DB : verify enrollment or completed course
+
+alt student is eligible
+    DB --> BE : eligibility confirmed
+    BE -> BE : validate rating
+    alt rating is valid
+        BE -> DB : check existing review
+        alt no existing review
+            DB --> BE : no review found
+            BE -> DB : create review record
+            DB --> BE : review stored
+            BE --> SYS : submission confirmed
+            SYS --> Student : display confirmation
+        else review already exists
+            DB --> BE : existing review found
+            BE --> SYS : duplicate review error or update option
+            SYS --> Student : display review already exists message
+        end
+    else rating is invalid
+        BE --> SYS : invalid rating error
+        SYS --> Student : display error message
+    end
+else student is not eligible
+    DB --> BE : not enrolled or completed
+    BE --> SYS : eligibility error
+    SYS --> Student : display error message
+else submission fails
+    DB --> BE : error
+    BE --> SYS : error message
+    SYS --> Student : display error message
+end
+
+@enduml
