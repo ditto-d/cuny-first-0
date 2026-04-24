@@ -1,0 +1,32 @@
+@startuml
+
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+participant "Backend" as BE
+database "Database" as DB
+
+Student -> SYS : access GPA page
+SYS -> BE : calculate_gpa(student_id)
+BE -> DB : retrieve graded enrollments
+
+alt graded courses exist
+    DB --> BE : grades and course credits
+    BE -> BE : convert letter grades to points
+    BE -> BE : compute weighted GPA
+    BE --> SYS : calculated GPA
+    SYS --> Student : display GPA
+else no graded courses exist
+    DB --> BE : empty grade list
+    BE --> SYS : GPA = 0.0
+    SYS --> Student : display GPA as 0.0
+else calculation fails
+    DB --> BE : error
+    BE --> SYS : error message
+    SYS --> Student : display error message
+end
+
+@enduml
