@@ -1,0 +1,35 @@
+@startuml
+
+
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Student
+participant "System" as SYS
+participant "Backend" as BE
+database "Database" as DB
+
+Student -> SYS : access complaint page
+Student -> SYS : enter complaint description and target
+SYS -> BE : submit_complaint(student_id, target, description)
+
+BE -> BE : validate required fields
+
+alt required fields are complete
+    BE -> DB : create complaint record
+    alt complaint stored
+        DB --> BE : complaint confirmation
+        BE --> SYS : complaint submitted
+        SYS --> Student : display confirmation
+    else submission fails
+        DB --> BE : error
+        BE --> SYS : error message
+        SYS --> Student : display error message
+    end
+else required fields missing
+    BE --> SYS : missing fields error
+    SYS --> Student : display error message
+end
+
+@enduml
