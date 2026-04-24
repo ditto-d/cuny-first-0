@@ -1,0 +1,37 @@
+@startuml
+
+skinparam sequenceArrowThickness 2
+skinparam ParticipantPadding 20
+skinparam sequenceFontSize 12
+
+actor Visitor
+participant "System" as SYS
+participant "Backend" as BE
+database "Vector DB\n(Public Information)" as VDB
+participant "LLM Service" as LLM
+
+Visitor -> SYS : submit general question
+SYS -> BE : process_visitor_query(question)
+BE -> BE : restrict context to public info\n(classes, admissions, requirements)
+BE -> VDB : search_public_context(question)
+
+alt local answer found
+    VDB --> BE : local answer
+    BE --> SYS : answer from local information
+    SYS --> Visitor : display answer
+else no local answer found
+    VDB --> BE : no answer found
+    BE -> LLM : send question for possible answer
+
+    alt LLM returns answer
+        LLM --> BE : possible answer
+        BE --> SYS : answer + hallucination warning
+        SYS --> Visitor : display answer with warning
+    else LLM fails
+        LLM --> BE : error
+        BE --> SYS : unable-to-answer message
+        SYS --> Visitor : display fallback message
+    end
+end
+
+@enduml
