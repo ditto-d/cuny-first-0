@@ -1,10 +1,7 @@
-from models.enrollment import Enrollment
+from services.supabase_client import supabase
 
 
 class RegistrationService:
-    @staticmethod
-    def check_registration_period(semester):
-        return semester.current_period == "registration"
 
     @staticmethod
     def check_course_load(section_ids):
@@ -15,53 +12,93 @@ class RegistrationService:
         seen_courses = set()
 
         for section in sections:
-            if section.course_id in seen_courses:
+            course_id = section["course_id"]
+
+            if course_id in seen_courses:
                 return True
-            seen_courses.add(section.course_id)
+
+            seen_courses.add(course_id)
 
         return False
 
     @staticmethod
     def has_time_conflict(sections):
-        seen_slots = set()
+        seen_schedules = set()
 
         for section in sections:
-            if section.time_slot in seen_slots:
+            schedule = section["schedule"]
+
+            if schedule in seen_schedules:
                 return True
-            seen_slots.add(section.time_slot)
+
+            seen_schedules.add(schedule)
 
         return False
 
     @staticmethod
+    def get_sections_by_ids(section_ids):
+        response = (
+            supabase.table("section")
+            .select("*")
+            .in_("section_id", section_ids)
+            .execute()
+        )
+
+        return response.data
+
+    @staticmethod
+    def get_enrollment_count(section_id):
+        response = (
+            supabase.table("enrollment")
+            .select("*")
+            .eq("section_id", section_id)
+            .execute()
+        )
+
+        return len(response.data)
+
+    @staticmethod
     def check_capacity(section):
-        return len(section.enrolled_students) < section.capacity
+        enrolled_count = RegistrationService.get_enrollment_count(section["section_id"])
+        return enrolled_count < section["seats"]
 
     @staticmethod
-    def add_to_waitlist(student_id, section):
-        if student_id in section.waitlist:
-            return {
-                "success": False,
-                "message": "Student is already on the waitlist."
-            }
+    def is_already_enrolled(student_id, section_id):
+        response = (
+            supabase.table("enrollment")
+            .select("*")
+            .eq("student_id", student_id)
+            .eq("section_id", section_id)
+            .execute()
+        )
 
-        section.waitlist.append(student_id)
-        return {
-            "success": True,
-            "message": f"Student added to waitlist at position {len(section.waitlist)}."
-        }
+        return len(response.data) > 0
 
     @staticmethod
-    def register_student(student_id, sections, semester, enrollments):
-        if not RegistrationService.check_registration_period(semester):
-            return {
-                "success": False,
-                "message": "Registration is currently closed."
-            }
+    def enroll_student(student_id, section_id):
+        return (
+            supabase.table("enrollment")
+            .insert({
+                "student_id": student_id,
+                "section_id": section_id
+            })
+            .execute()
+        )
 
-        if not RegistrationService.check_course_load([section.section_id for section in sections]):
+    @staticmethod
+    def register_student(student_id, section_ids):
+        if not RegistrationService.check_course_load(section_ids):
             return {
                 "success": False,
                 "message": "Student must register for 2 to 4 courses."
+            }
+
+        sections = RegistrationService.get_sections_by_ids(section_ids)
+
+        if len(sections) != len(section_ids):
+            return {
+                "success": False,
+                "message": "One or more section IDs were not found."
             }
 
         if RegistrationService.has_duplicate_courses(sections):
@@ -77,68 +114,53 @@ class RegistrationService:
             }
 
         enrolled_sections = []
-        waitlisted_sections = []
+        full_sections = []
+        skipped_sections = []
 
         for section in sections:
-            already_enrolled = any(
-                enrollment.student_id == student_id and enrollment.section_id == section.section_id
-                for enrollment in enrollments
-            )
+            section_id = section["section_id"]
 
-            if already_enrolled:
+            if RegistrationService.is_already_enrolled(student_id, section_id):
+                skipped_sections.append(section_id)
                 continue
 
             if RegistrationService.check_capacity(section):
-                section.enrolled_students.append(student_id)
-                enrollments.append(Enrollment(student_id, section.section_id, "enrolled"))
-                enrolled_sections.append(section.section_id)
+                RegistrationService.enroll_student(student_id, section_id)
+                enrolled_sections.append(section_id)
             else:
-                waitlist_result = RegistrationService.add_to_waitlist(student_id, section)
-                if waitlist_result["success"]:
-                    enrollments.append(Enrollment(student_id, section.section_id, "waitlisted"))
-                    waitlisted_sections.append(section.section_id)
+                full_sections.append(section_id)
 
         return {
             "success": True,
             "message": "Registration processed.",
             "enrolled_sections": enrolled_sections,
-            "waitlisted_sections": waitlisted_sections
+            "full_sections": full_sections,
+            "skipped_sections": skipped_sections
         }
 
     @staticmethod
-    def drop_student(student_id, section, enrollments):
-        removed = False
+    def drop_student(student_id, section_id):
+        existing = (
+            supabase.table("enrollment")
+            .select("*")
+            .eq("student_id", student_id)
+            .eq("section_id", section_id)
+            .execute()
+        )
 
-        for enrollment in list(enrollments):
-            if enrollment.student_id == student_id and enrollment.section_id == section.section_id:
-                enrollments.remove(enrollment)
-                removed = True
+        if not existing.data:
+            return {
+                "success": False,
+                "message": "Student is not enrolled in this section."
+            }
 
-        if student_id in section.enrolled_students:
-            section.enrolled_students.remove(student_id)
-            removed = True
-
-        if student_id in section.waitlist:
-            section.waitlist.remove(student_id)
-            removed = True
-
-        promoted_student = None
-
-        if not section.is_full() and section.waitlist:
-            next_student = section.waitlist.pop(0)
-            section.enrolled_students.append(next_student)
-
-            for enrollment in enrollments:
-                if enrollment.student_id == next_student and enrollment.section_id == section.section_id:
-                    enrollment.status = "enrolled"
-                    break
-            else:
-                enrollments.append(Enrollment(next_student, section.section_id, "enrolled"))
-
-            promoted_student = next_student
+        supabase.table("enrollment") \
+            .delete() \
+            .eq("student_id", student_id) \
+            .eq("section_id", section_id) \
+            .execute()
 
         return {
-            "success": removed,
-            "message": "Drop processed." if removed else "Student was not found in this section.",
-            "promoted_student": promoted_student
+            "success": True,
+            "message": "Student dropped from section."
         }
