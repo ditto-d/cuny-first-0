@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auth</title>
+</head>
+<body>
+    <h1>Test Authentication</h1>
+    <button onclick="testAuth()">Initialize & Test Accounts</button>
+    <div id="output"></div>
+    
+    <script type="module">
+        // Simulate the auth functions
+        const initializeDefaultAccounts = () => {
+            const existingAccounts = localStorage.getItem('cunyfirst_accounts');
+            
+            if (!existingAccounts || existingAccounts === '[]') {
+                const defaultAccounts = [
+                    {
+                        username: "student",
+                        password: "student123",
+                        email: "student@cuny.edu",
+                        firstName: "Demo",
+                        lastName: "Student",
+                        role: "student",
+                        studentId: "12345678",
+                        createdAt: new Date().toISOString(),
+                    },
+                    {
+                        username: "instructor",
+                        password: "instructor123",
+                        email: "instructor@cuny.edu",
+                        firstName: "Demo",
+                        lastName: "Instructor",
+                        role: "instructor",
+                        createdAt: new Date().toISOString(),
+                    },
+                    {
+                        username: "registrar",
+                        password: "registrar123",
+                        email: "registrar@cuny.edu",
+                        firstName: "Demo",
+                        lastName: "Registrar",
+                        role: "registrar",
+                        createdAt: new Date().toISOString(),
+                    },
+                ];
+                
+                localStorage.setItem('cunyfirst_accounts', JSON.stringify(defaultAccounts));
+                console.log('Accounts initialized:', defaultAccounts);
+            }
+        };
+        
+        window.testAuth = () => {
+            initializeDefaultAccounts();
+            const accounts = localStorage.getItem('cunyfirst_accounts');
+            document.getElementById('output').innerHTML = '<pre>' + accounts + '</pre>';
+            console.log('Accounts in storage:', accounts);
+        };
+    </script>
+</body>
+</html>
