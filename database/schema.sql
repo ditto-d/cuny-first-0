@@ -1,3 +1,5 @@
+-- this is in postgresql 
+
 DROP TABLE IF EXISTS ai_query_log, admission, disciplinary, performance,
                      grade, enrollment, section, course, program,
                      registrar, instructor, student, department, account CASCADE;
