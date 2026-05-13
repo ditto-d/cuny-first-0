@@ -2,14 +2,18 @@ from itertools import product
 
 
 class ScheduleService:
+
     @staticmethod
     def has_time_conflict(schedule):
-        seen_slots = set()
+        seen_times = set()
 
         for section in schedule:
-            if section.time_slot in seen_slots:
+            time_slot = section.get("schedule")
+
+            if time_slot in seen_times:
                 return True
-            seen_slots.add(section.time_slot)
+
+            seen_times.add(time_slot)
 
         return False
 
@@ -18,21 +22,16 @@ class ScheduleService:
         if not sections_by_course:
             return []
 
-        all_combinations = product(*sections_by_course)
         valid_schedules = []
 
-        for combo in all_combinations:
-            combo_list = list(combo)
-            if not ScheduleService.has_time_conflict(combo_list):
-                valid_schedules.append(combo_list)
+        for combination in product(*sections_by_course):
+            schedule = list(combination)
+
+            if not ScheduleService.has_time_conflict(schedule):
+                valid_schedules.append(schedule)
 
         return valid_schedules
 
     @staticmethod
     def schedules_to_dict(valid_schedules):
-        result = []
-
-        for schedule in valid_schedules:
-            result.append([section.to_dict() for section in schedule])
-
-        return result
+        return valid_schedules
