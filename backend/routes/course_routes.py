@@ -17,15 +17,22 @@ def get_courses():
 
 @course_bp.route("/sections", methods=["GET"])
 def get_sections():
-    response = supabase.table("section").select("*").execute()
+
+    response = (
+        supabase.table("section")
+        .select("*, course(*)")
+        .execute()
+    )
+
     return jsonify(response.data)
 
 
 @course_bp.route("/sections/<int:section_id>", methods=["GET"])
 def get_section(section_id):
+
     response = (
         supabase.table("section")
-        .select("*")
+        .select("*, course(*)")
         .eq("section_id", section_id)
         .execute()
     )

@@ -52,6 +52,7 @@ class RegistrationService:
             supabase.table("enrollment")
             .select("*")
             .eq("section_id", section_id)
+            .eq("status", "enrolled")
             .execute()
         )
 
@@ -63,7 +64,7 @@ class RegistrationService:
         return enrolled_count < section["seats"]
 
     @staticmethod
-    def is_already_enrolled(student_id, section_id):
+    def is_already_registered(student_id, section_id):
         response = (
             supabase.table("enrollment")
             .select("*")
@@ -75,12 +76,13 @@ class RegistrationService:
         return len(response.data) > 0
 
     @staticmethod
-    def enroll_student(student_id, section_id):
+    def enroll_student(student_id, section_id, status="enrolled"):
         return (
             supabase.table("enrollment")
             .insert({
                 "student_id": student_id,
-                "section_id": section_id
+                "section_id": section_id,
+                "status": status
             })
             .execute()
         )
@@ -114,27 +116,37 @@ class RegistrationService:
             }
 
         enrolled_sections = []
-        full_sections = []
+        waitlisted_sections = []
         skipped_sections = []
 
         for section in sections:
             section_id = section["section_id"]
 
-            if RegistrationService.is_already_enrolled(student_id, section_id):
+            if RegistrationService.is_already_registered(student_id, section_id):
                 skipped_sections.append(section_id)
                 continue
 
             if RegistrationService.check_capacity(section):
-                RegistrationService.enroll_student(student_id, section_id)
+                RegistrationService.enroll_student(
+                    student_id,
+                    section_id,
+                    "enrolled"
+                )
                 enrolled_sections.append(section_id)
+
             else:
-                full_sections.append(section_id)
+                RegistrationService.enroll_student(
+                    student_id,
+                    section_id,
+                    "waitlisted"
+                )
+                waitlisted_sections.append(section_id)
 
         return {
             "success": True,
             "message": "Registration processed.",
             "enrolled_sections": enrolled_sections,
-            "full_sections": full_sections,
+            "waitlisted_sections": waitlisted_sections,
             "skipped_sections": skipped_sections
         }
 
@@ -151,7 +163,7 @@ class RegistrationService:
         if not existing.data:
             return {
                 "success": False,
-                "message": "Student is not enrolled in this section."
+                "message": "Student is not enrolled or waitlisted in this section."
             }
 
         supabase.table("enrollment") \
@@ -162,5 +174,5 @@ class RegistrationService:
 
         return {
             "success": True,
-            "message": "Student dropped from section."
+            "message": "Student removed from section or waitlist."
         }

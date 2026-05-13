@@ -51,7 +51,11 @@ def drop():
 
 @registration_bp.route("/registration/enrollments", methods=["GET"])
 def get_enrollments():
-    response = supabase.table("enrollment").select("*").execute()
+    response = (
+        supabase.table("enrollment")
+        .select("*, section(*, course(*))")
+        .execute()
+    )
     return jsonify(response.data)
 
 
@@ -59,7 +63,7 @@ def get_enrollments():
 def get_student_enrollments(student_id):
     response = (
         supabase.table("enrollment")
-        .select("*")
+        .select("*, section(*, course(*))")
         .eq("student_id", student_id)
         .execute()
     )
