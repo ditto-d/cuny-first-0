@@ -44,7 +44,7 @@ export function GuestDashboard() {
   const cards = isStudentGuest ? studentCards : isInstructorGuest ? instructorCards : registrarCards;
 
   const handleExplore = (title: string) => {
-    toast.info(`${title} - This feature is view-only in guest mode. Create an account to access full functionality!`);
+    toast.info(`${title} - This feature is view-only in guest mode. Register and receive an account to access full functionality!`);
   };
 
   return (
@@ -64,10 +64,10 @@ export function GuestDashboard() {
               </p>
               <div className="flex gap-3">
                 <button
-                  onClick={() => navigate("/create-account")}
+                  onClick={() => navigate("/register")}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Create Account
+                  Register
                 </button>
                 <button
                   onClick={() => navigate("/")}
@@ -154,7 +154,7 @@ export function GuestDashboard() {
                 <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">
                   1
                 </div>
-                <p className="text-gray-900">Create your account or sign in</p>
+                <p className="text-gray-900">Register for an account or sign in</p>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">

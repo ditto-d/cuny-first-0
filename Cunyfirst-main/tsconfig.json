@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2015", "DOM", "DOM.Iterable"],
+    "target": "ES2015",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true
+  }
+}
