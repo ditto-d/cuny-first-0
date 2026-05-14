@@ -1,7 +1,7 @@
 from ast import Return
 from datetime import date, datetime, timezone
-from utils import letter_to_points, VALID_GRADES
- 
+from backend.utils import letter_to_points, VALID_GRADES
+
 # File: Handles grade submission, retrieval, and GPA calculation.
 
 # Grade Submission
@@ -49,7 +49,7 @@ def submit_grade(supabase, instructor_id: str, section_id: str, student_id: str,
             "message": f"Invalid grade. Must be one of: {', '.join(VALID_GRADES)}",
         }
  
-    # Upsert the grade on the enrollment row
+    # Update the enrollment record with the submitted grade and timestamp.
     supabase.table("enrollments").update(
         {"grade": letter_grade, "graded_at": datetime.utcnow().isoformat()}
     ).eq("section_id", section_id).eq("student_id", student_id).execute()

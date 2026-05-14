@@ -14,7 +14,7 @@ from services.complaints_service import submit_complaint, resolve_complaint
  
 grades_bp = Blueprint("grades", __name__)
  
- # Helper function to create Supabase client
+# Helper function to create Supabase client
 def get_supabase():
     #Create a Supabase client using environment variables.
     return create_client(
@@ -22,7 +22,7 @@ def get_supabase():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
  
-#Grades
+# Grades
 
 @grades_bp.route("/grades/submit", methods=["POST"])
 def route_submit_grade():

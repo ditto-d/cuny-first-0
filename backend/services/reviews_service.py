@@ -2,7 +2,6 @@ from datetime import datetime
 
 #FILE: Handles student course review submission and rating updates.
 
-
 # Banned-word filter
  
 # Add or remove words from this list as needed.
@@ -29,7 +28,7 @@ def apply_banned_word_filter(text: str) -> dict:
     return {"text": clean_text, "banned_count": banned_count}
  
  
-#  Review Submission
+# Review Submission
 
 
 def submit_review(supabase, student_id: str, course_id: str, rating: int, comment_text: str) -> dict:
