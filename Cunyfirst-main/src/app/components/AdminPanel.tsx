@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, XCircle } from "lucide-react";
-import { useSearchParams } from "react-router";
+import { RefreshCw, XCircle, Bot } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { apiUrl, readApiError } from "../utils/api";
 
@@ -33,6 +33,7 @@ type ApprovalResult = {
 };
 
 export function RegistrarDashboard() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [applications, setApplications] = useState<AdmissionApplication[]>([]);
   const [isLoadingApplications, setIsLoadingApplications] = useState(false);
@@ -202,6 +203,12 @@ export function RegistrarDashboard() {
           <h1 className="text-3xl text-gray-900 mb-2">Registrar Admin Panel</h1>
           <p className="text-gray-600">Manage courses, students, and approvals</p>
         </div>
+            <button
+               onClick={() => navigate("/registrar/ai-advisor")}
+                className="mb-6 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors inline-flex items-center gap-2">
+                   <Bot className="w-4 h-4" />
+                   Open AI Advisor
+                      </button>
 
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="p-6">

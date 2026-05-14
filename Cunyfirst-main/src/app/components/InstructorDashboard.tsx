@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { BookOpen, Users, FileText, Megaphone } from "lucide-react";
+import { useNavigate } from "react-router";
+import { BookOpen, Users, FileText, Megaphone, Bot } from "lucide-react";
 import { toast } from "sonner";
 import { apiUrl } from "../utils/api";
 
 type TabType = "courses" | "rosters" | "grades" | "announcements";
 
 export function InstructorDashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>("courses");
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [isSubmittingGrades, setIsSubmittingGrades] = useState(false);
@@ -102,6 +104,13 @@ export function InstructorDashboard() {
           <h1 className="text-3xl text-gray-900 mb-2">Instructor Dashboard</h1>
           <p className="text-gray-600">Manage your courses and students</p>
         </div>
+        <button
+            onClick={() => navigate("/instructor/ai-advisor")}
+             className="mb-6 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors inline-flex items-center gap-2"
+         >
+             <Bot className="w-4 h-4" />
+               Open AI Advisor
+                </button>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-sm p-6">

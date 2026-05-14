@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router";
-import { BookOpen, Users, Calendar, Info, Eye } from "lucide-react";
+import { BookOpen, Users, Calendar, Info, Eye, Bot } from "lucide-react";
 import { toast } from "sonner";
 
 export function GuestDashboard() {
@@ -25,28 +25,52 @@ export function GuestDashboard() {
 
   const studentCards = [
     { icon: BookOpen, title: "Browse Courses", description: "View available courses and sections", color: "bg-blue-500" },
+      {
+       icon: Bot,
+        title: "AI Advisor",
+         description: "Ask the AI assistant questions about courses and registration",
+       color: "bg-pink-500"
+         },
     { icon: Calendar, title: "Sample Schedule", description: "See example student schedules", color: "bg-green-500" },
     { icon: Info, title: "Registration Info", description: "Learn about the registration process", color: "bg-purple-500" },
   ];
 
   const instructorCards = [
     { icon: BookOpen, title: "Course Overview", description: "View sample course assignments", color: "bg-blue-500" },
+      {
+  icon: Bot,
+  title: "AI Advisor",
+  description: "Ask the AI assistant about teaching and grading workflows",
+  color: "bg-pink-500"
+},
     { icon: Users, title: "Student Rosters", description: "See example class rosters", color: "bg-green-500" },
     { icon: Info, title: "Grading System", description: "Explore the grading interface", color: "bg-orange-500" },
   ];
 
   const registrarCards = [
     { icon: BookOpen, title: "Course Management", description: "View course administration tools", color: "bg-blue-500" },
+      {
+  icon: Bot,
+  title: "AI Advisor",
+  description: "Ask the AI assistant about approvals and administration",
+  color: "bg-pink-500"
+},
     { icon: Users, title: "Student Management", description: "See student administration features", color: "bg-green-500" },
     { icon: Info, title: "Approval System", description: "Explore the approval workflow", color: "bg-purple-500" },
   ];
 
   const cards = isStudentGuest ? studentCards : isInstructorGuest ? instructorCards : registrarCards;
 
-  const handleExplore = (title: string) => {
-    toast.info(`${title} - This feature is view-only in guest mode. Register and receive an account to access full functionality!`);
-  };
+ const handleExplore = (title: string) => {
+  if (title === "AI Advisor") {
+    navigate(`${location.pathname}/ai-advisor`);
+    return;
+  }
 
+  toast.info(
+    `${title} - This feature is view-only in guest mode. Register and receive an account to access full functionality!`
+  );
+};
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">

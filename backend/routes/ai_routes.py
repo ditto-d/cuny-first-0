@@ -20,6 +20,7 @@ def ask_ai():
         from services.ai_services import AIService
 
         result = AIService.answer_question(role, question, user_id)
+
     except ImportError as error:
         return jsonify({
             "success": False,

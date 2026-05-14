@@ -2,16 +2,42 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { callAIAPI, type AIMessage as AIMessageType } from "../utils/aiAdvisor";
+import { useLocation } from "react-router";
 
 export function AIAdvisor() {
+  const location = useLocation();
+
+const role = location.pathname.includes("/student")
+  ? "student"
+  : location.pathname.includes("/instructor")
+  ? "instructor"
+  : location.pathname.includes("/registrar")
+  ? "registrar"
+  : "visitor";
+
+const userId =
+  role === "registrar"
+    ? localStorage.getItem("registrarId")
+    : role === "instructor"
+    ? localStorage.getItem("instructorId")
+    : role === "student"
+    ? localStorage.getItem("studentId")
+    : null;
+
+const idLabel =
+  role === "registrar"
+    ? "Registrar ID"
+    : role === "instructor"
+    ? "Instructor ID"
+    : role === "student"
+    ? "Student ID"
+    : "Guest";
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<AIMessageType[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const username = localStorage.getItem("username") || "Student";
-  const studentId = localStorage.getItem("studentId") || "N/A";
-  const userRole = localStorage.getItem("userRole") || "student";
 
   useEffect(() => {
     setMessages([
@@ -144,6 +170,7 @@ export function AIAdvisor() {
                           Backend AI
                         </span>
                       </div>
+
                       <div className="flex items-center gap-2">
                         <Loader2 className="w-4 h-4 text-gray-500 animate-spin" />
                         <span className="text-sm text-gray-500">
@@ -196,12 +223,12 @@ export function AIAdvisor() {
 
                 <div className="flex justify-between">
                   <span className="text-gray-600">Role</span>
-                  <span className="font-medium text-gray-900">{userRole}</span>
+                  <span className="font-medium text-gray-900">{role}</span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Student ID</span>
-                  <span className="font-medium text-gray-900">{studentId}</span>
+                  <span className="text-gray-600">{idLabel}</span>
+                  <span className="font-medium text-gray-900">{userId || "N/A"}</span>
                 </div>
               </div>
             </div>
