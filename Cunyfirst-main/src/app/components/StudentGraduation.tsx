@@ -20,7 +20,7 @@ export function StudentGraduation() {
       if (response.ok) {
         const data = await response.json();
         const graded = (data.grades ?? []).filter(
-          (g: any) => !["W", "I"].indexOf(g.letter_grade)
+         (g: any) => !["W", "I"].includes(g.letter_grade)
         );
         setCompletedCourses(graded.length);
       }
