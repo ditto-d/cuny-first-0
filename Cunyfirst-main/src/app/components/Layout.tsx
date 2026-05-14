@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
-import { Home, BookOpen, Calendar, Clock, Settings, LogOut, Shield, Users, FileText, Megaphone, CheckCircle, Eye, User, Bot } from "lucide-react";
+import { Home, BookOpen, Calendar, Clock, Settings, LogOut, Users, FileText, Megaphone, CheckCircle, Eye, User, Bot } from "lucide-react";
 
 export function Layout() {
   const navigate = useNavigate();
@@ -30,10 +30,10 @@ export function Layout() {
   ];
 
   const registrarNavItems = [
-    { id: "admin", icon: Shield, label: "Admin Panel", path: isGuest ? "/guest-registrar" : "/registrar" },
-    { id: "courses", icon: BookOpen, label: "Manage Courses", path: isGuest ? "/guest-registrar" : "/registrar" },
-    { id: "students", icon: Users, label: "Manage Students", path: isGuest ? "/guest-registrar" : "/registrar" },
-    { id: "approvals", icon: CheckCircle, label: "Approvals", path: isGuest ? "/guest-registrar" : "/registrar" },
+    { id: "courses", icon: BookOpen, label: "Manage Courses", path: isGuest ? "/guest-registrar" : "/registrar?tab=courses" },
+    { id: "students", icon: Users, label: "Manage Students", path: isGuest ? "/guest-registrar" : "/registrar?tab=students" },
+    { id: "approvals", icon: CheckCircle, label: "Approvals", path: isGuest ? "/guest-registrar" : "/registrar?tab=approvals" },
+    { id: "settings", icon: Settings, label: "Settings", path: isGuest ? "/guest-registrar" : "/registrar?tab=settings" },
   ];
 
   const navItems = (isStudent || isGuestStudent)
@@ -104,7 +104,11 @@ export function Layout() {
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            const currentPath = `${location.pathname}${location.search}`;
+            const isActive =
+              currentPath === item.path ||
+              (isRegistrar && !location.search && item.id === "courses" && item.path === "/registrar?tab=courses") ||
+              (isGuest && location.pathname === item.path);
             return (
               <button
                 key={item.id}

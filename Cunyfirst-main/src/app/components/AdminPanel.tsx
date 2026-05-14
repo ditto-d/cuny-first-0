@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Users, BookOpen, CheckCircle, Settings, RefreshCw, XCircle } from "lucide-react";
+import { RefreshCw, XCircle } from "lucide-react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { apiUrl, readApiError } from "../utils/api";
 
@@ -32,7 +33,7 @@ type ApprovalResult = {
 };
 
 export function RegistrarDashboard() {
-  const [activeTab, setActiveTab] = useState<TabType>("courses");
+  const [searchParams] = useSearchParams();
   const [applications, setApplications] = useState<AdmissionApplication[]>([]);
   const [isLoadingApplications, setIsLoadingApplications] = useState(false);
   const [applicationError, setApplicationError] = useState("");
@@ -40,12 +41,11 @@ export function RegistrarDashboard() {
   const [processingApplicationId, setProcessingApplicationId] = useState<number | null>(null);
   const [approvalResults, setApprovalResults] = useState<Record<number, ApprovalResult>>({});
 
-  const tabs = [
-    { id: "courses" as TabType, label: "Manage Courses", icon: BookOpen },
-    { id: "students" as TabType, label: "Manage Students", icon: Users },
-    { id: "approvals" as TabType, label: "Approvals", icon: CheckCircle },
-    { id: "settings" as TabType, label: "Settings", icon: Settings },
-  ];
+  const requestedTab = searchParams.get("tab");
+  const activeTab: TabType =
+    requestedTab === "students" || requestedTab === "approvals" || requestedTab === "settings"
+      ? requestedTab
+      : "courses";
 
   const courses = [
     { id: "1", code: "CS 101", name: "Intro to CS", sections: 3, enrolled: 85, capacity: 90 },
@@ -204,28 +204,6 @@ export function RegistrarDashboard() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? "border-blue-600 text-blue-600"
-                        : "border-transparent text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div className="p-6">
             {activeTab === "courses" && (
               <div>
