@@ -5,7 +5,7 @@ class RegistrationService:
 
     @staticmethod
     def check_course_load(section_ids):
-        return 2 <= len(section_ids) <= 4
+        return len(section_ids) <= 4
 
     @staticmethod
     def has_duplicate_courses(sections):
@@ -121,7 +121,7 @@ class RegistrationService:
         if not RegistrationService.check_course_load(section_ids):
             return {
                 "success": False,
-                "message": "Student must register for 2 to 4 courses."
+                "message": "Student cannot register for more than 4 courses."
             }
 
         sections = RegistrationService.get_sections_by_ids(section_ids)
