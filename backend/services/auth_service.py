@@ -1,13 +1,18 @@
 from models.account import Account
-from services.supabase_client import supabase
+from services.supabase_client import SUPABASE_KEY, SUPABASE_URL
+from supabase import create_client
 
 
 class AuthService:
     @staticmethod
+    def _client():
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    @staticmethod
     def _first_account_by(column: str, value: str) -> dict | None:
         try:
             response = (
-                supabase.table("account")
+                AuthService._client().table("account")
                 .select("*")
                 .eq(column, value)
                 .limit(1)
@@ -44,7 +49,7 @@ class AuthService:
             }, 401
 
         try:
-            auth_response = supabase.auth.sign_in_with_password(
+            auth_response = AuthService._client().auth.sign_in_with_password(
                 {"email": account.email, "password": password}
             )
         except Exception:

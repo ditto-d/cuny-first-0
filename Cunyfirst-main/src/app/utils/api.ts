@@ -1,6 +1,6 @@
 const configuredBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL;
 
-export const API_BASE_URL = configuredBaseUrl || "http://127.0.0.1:5050";
+export const API_BASE_URL = configuredBaseUrl || "http://127.0.0.1:5051";
 
 export function apiUrl(path: string) {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;

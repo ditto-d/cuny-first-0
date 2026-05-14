@@ -30,7 +30,11 @@ export function Login() {
         e.preventDefault();
         setError("");
 
-        if (!username || !password) {
+        const form = new FormData(e.currentTarget as HTMLFormElement);
+        const loginIdentifier = String(form.get("username") || username).trim();
+        const loginPassword = String(form.get("password") || password);
+
+        if (!loginIdentifier || !loginPassword) {
             setError("Please enter both username and password");
             toast.error("Please enter both username and password");
             return;
@@ -42,7 +46,7 @@ export function Login() {
             const response = await fetch(apiUrl("/auth/login"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ identifier: username, password }),
+                body: JSON.stringify({ identifier: loginIdentifier, password: loginPassword }),
             });
 
 
@@ -159,6 +163,7 @@ export function Login() {
                             </label>
                             <input
                                 id="username"
+                                name="username"
                                 type="text"
                                 value={username}
                                 onChange={(e) => {
@@ -179,6 +184,7 @@ export function Login() {
                             </label>
                             <input
                                 id="password"
+                                name="password"
                                 type="password"
                                 value={password}
                                 onChange={(e) => {
