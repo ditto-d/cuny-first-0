@@ -51,9 +51,11 @@ def route_get_grades(student_id):
  
 @grades_bp.route("/gpa/<int:student_id>", methods=["GET"])
 def route_get_gpa(student_id):
-    #GET /api/gpa/<student_id>
-    #Returns the student's current cumulative GPA.
+
+    recalculate_gpa(get_supabase(), student_id)
+
     result = get_gpa(get_supabase(), student_id)
+
     return jsonify(result), (200 if result["success"] else 404)
  
  
