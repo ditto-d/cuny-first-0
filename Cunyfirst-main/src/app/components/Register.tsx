@@ -1,12 +1,19 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router";
-import { GraduationCap, ArrowLeft, User, Briefcase, AlertCircle, CheckCircle, Upload } from "lucide-react";
+import { Link } from "react-router";
+import {
+    GraduationCap,
+    ArrowLeft,
+    User,
+    Briefcase,
+    AlertCircle,
+    CheckCircle,
+    Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 
 type ApplicationType = "student" | "instructor";
 
 export function Register() {
-    const navigate = useNavigate();
     const [applicationType, setApplicationType] = useState<ApplicationType>("student");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -30,7 +37,10 @@ export function Register() {
         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: "transcript" | "resume") => {
+    const handleFileChange = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        field: "transcript" | "resume"
+    ) => {
         const file = e.target.files?.[0] ?? null;
         setFormData((prev) => ({ ...prev, [field]: file }));
         if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
@@ -87,32 +97,19 @@ export function Register() {
                     ? "http://127.0.0.1:8000/applications/student"
                     : "http://127.0.0.1:8000/applications/instructor";
 
-            let body: FormData | string;
-            let headers: Record<string, string> = {};
+            const fd = new FormData();
+            fd.append("first_name", formData.firstName);
+            fd.append("last_name", formData.lastName);
+            fd.append("email", formData.email);
 
             if (applicationType === "student") {
-                const fd = new FormData();
-                fd.append("first_name", formData.firstName);
-                fd.append("last_name", formData.lastName);
-                fd.append("email", formData.email);
                 fd.append("gpa", formData.gpa);
                 if (formData.transcript) fd.append("transcript", formData.transcript);
-                body = fd;
             } else {
-                const fd = new FormData();
-                fd.append("first_name", formData.firstName);
-                fd.append("last_name", formData.lastName);
-                fd.append("email", formData.email);
                 if (formData.resume) fd.append("resume", formData.resume);
-                body = fd;
             }
 
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers,
-                body,
-            });
-
+            const response = await fetch(endpoint, { method: "POST", body: fd });
             const data = await response.json();
 
             if (!response.ok) {
@@ -128,7 +125,7 @@ export function Register() {
         }
     };
 
-    // ── Success screen shown after submission ────────────────────────────────
+    // ── Success screen ────────────────────────────────────────────────────────
     if (submitted) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-indigo-100 flex items-center justify-center p-4">
@@ -158,7 +155,7 @@ export function Register() {
         );
     }
 
-    // ── Application form ─────────────────────────────────────────────────────
+    // ── Form ──────────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-indigo-100 flex items-center justify-center p-4">
             <div className="w-full max-w-2xl">
@@ -181,7 +178,7 @@ export function Register() {
                         </p>
                     </div>
 
-                    {/* Application type */}
+                    {/* Application type selector */}
                     <div className="mb-6">
                         <label className="block text-sm text-gray-700 mb-3 font-medium">
                             I am applying as a <span className="text-red-500">*</span>
@@ -331,7 +328,6 @@ export function Register() {
                         {/* Student-only fields */}
                         {applicationType === "student" && (
                             <>
-                                {/* GPA */}
                                 <div>
                                     <label htmlFor="gpa" className="block text-sm text-gray-700 mb-2 font-medium">
                                         GPA <span className="text-red-500">*</span>
@@ -359,68 +355,29 @@ export function Register() {
                                     )}
                                 </div>
 
-                                {/* Transcript upload */}
-                                <div>
-                                    <label className="block text-sm text-gray-700 mb-2 font-medium">
-                                        Transcript <span className="text-red-500">*</span>
-                                    </label>
-                                    <label
-                                        htmlFor="transcript"
-                                        className={`flex items-center gap-3 w-full px-4 py-3 bg-gray-50 border rounded-lg cursor-pointer hover:bg-gray-100 transition-all ${
-                                            errors.transcript ? "border-red-300" : "border-gray-200"
-                                        }`}
-                                    >
-                                        <Upload className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                        <span className={`text-sm truncate ${formData.transcript ? "text-gray-800" : "text-gray-400"}`}>
-                      {formData.transcript ? formData.transcript.name : "Upload transcript (PDF)"}
-                    </span>
-                                        <input
-                                            id="transcript"
-                                            type="file"
-                                            accept=".pdf"
-                                            className="hidden"
-                                            onChange={(e) => handleFileChange(e, "transcript")}
-                                        />
-                                    </label>
-                                    {errors.transcript && (
-                                        <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" /> {errors.transcript}
-                                        </p>
-                                    )}
-                                </div>
+                                <FileUploadField
+                                    id="transcript"
+                                    label="Transcript"
+                                    accept=".pdf"
+                                    file={formData.transcript}
+                                    error={errors.transcript}
+                                    placeholder="Upload transcript (PDF)"
+                                    onChange={(e) => handleFileChange(e, "transcript")}
+                                />
                             </>
                         )}
 
                         {/* Instructor-only fields */}
                         {applicationType === "instructor" && (
-                            <div>
-                                <label className="block text-sm text-gray-700 mb-2 font-medium">
-                                    Resume <span className="text-red-500">*</span>
-                                </label>
-                                <label
-                                    htmlFor="resume"
-                                    className={`flex items-center gap-3 w-full px-4 py-3 bg-gray-50 border rounded-lg cursor-pointer hover:bg-gray-100 transition-all ${
-                                        errors.resume ? "border-red-300" : "border-gray-200"
-                                    }`}
-                                >
-                                    <Upload className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                    <span className={`text-sm truncate ${formData.resume ? "text-gray-800" : "text-gray-400"}`}>
-                    {formData.resume ? formData.resume.name : "Upload resume (PDF)"}
-                  </span>
-                                    <input
-                                        id="resume"
-                                        type="file"
-                                        accept=".pdf"
-                                        className="hidden"
-                                        onChange={(e) => handleFileChange(e, "resume")}
-                                    />
-                                </label>
-                                {errors.resume && (
-                                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" /> {errors.resume}
-                                    </p>
-                                )}
-                            </div>
+                            <FileUploadField
+                                id="resume"
+                                label="Resume"
+                                accept=".pdf"
+                                file={formData.resume}
+                                error={errors.resume}
+                                placeholder="Upload resume (PDF)"
+                                onChange={(e) => handleFileChange(e, "resume")}
+                            />
                         )}
 
                         <div className="pt-2">
@@ -442,6 +399,50 @@ export function Register() {
                     </form>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ── Reusable file-upload field ────────────────────────────────────────────────
+function FileUploadField({
+                             id,
+                             label,
+                             accept,
+                             file,
+                             error,
+                             placeholder,
+                             onChange,
+                         }: {
+    id: string;
+    label: string;
+    accept: string;
+    file: File | null;
+    error?: string;
+    placeholder: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+    return (
+        <div>
+            <label className="block text-sm text-gray-700 mb-2 font-medium">
+                {label} <span className="text-red-500">*</span>
+            </label>
+            <label
+                htmlFor={id}
+                className={`flex items-center gap-3 w-full px-4 py-3 bg-gray-50 border rounded-lg cursor-pointer hover:bg-gray-100 transition-all ${
+                    error ? "border-red-300" : "border-gray-200"
+                }`}
+            >
+                <Upload className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <span className={`text-sm truncate ${file ? "text-gray-800" : "text-gray-400"}`}>
+          {file ? file.name : placeholder}
+        </span>
+                <input id={id} type="file" accept={accept} className="hidden" onChange={onChange} />
+            </label>
+            {error && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> {error}
+                </p>
+            )}
         </div>
     );
 }
