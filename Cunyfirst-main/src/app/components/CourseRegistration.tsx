@@ -82,36 +82,42 @@ export function CourseRegistration() {
     loadCourses();
   }, []);
 
-  const handleRegister = async (id: string, courseName: string) => {
-    try {
-      const response = await fetch(apiUrl("/registration/register"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          student_id: STUDENT_ID,
-          section_ids: [Number(id)],
-        }),
-      });
+const handleRegister = async (id: string, courseName: string) => {
+  try {
+    const currentlySelectedSectionIds = courses
+      .filter((course) => course.registered || course.waitlisted)
+      .map((course) => Number(course.id));
 
-      if (!response.ok) {
-        const message = await readApiError(response, "Registration failed.");
-        toast.error(message);
-        return;
-      }
+    const sectionIds = [...currentlySelectedSectionIds, Number(id)];
 
-      const data = await response.json();
+    const response = await fetch(apiUrl("/registration/register"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        student_id: STUDENT_ID,
+        section_ids: sectionIds,
+      }),
+    });
 
-      if (data.waitlisted_sections?.includes(Number(id))) {
-        toast.info(`Added to waitlist for ${courseName}`);
-      } else {
-        toast.success(`Successfully registered for ${courseName}!`);
-      }
+    const data = await response.json();
 
+    if (!response.ok || !data.success) {
+      toast.error(data.message || "Registration failed.");
       await loadCourses();
-    } catch {
-      toast.error("Could not connect to backend.");
+      return;
     }
-  };
+
+    if (data.waitlisted_sections?.includes(Number(id))) {
+      toast.info(`Added to waitlist for ${courseName}`);
+    } else {
+      toast.success(`Successfully registered for ${courseName}!`);
+    }
+
+    await loadCourses();
+  } catch {
+    toast.error("Could not connect to backend.");
+  }
+};
 
   const handleDrop = async (id: string, courseName: string) => {
     try {
