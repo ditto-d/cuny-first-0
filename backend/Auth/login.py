@@ -1,63 +1,19 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from supabase import create_client, Client
-import os
-from dotenv import load_dotenv, find_dotenv
+import sys
+from pathlib import Path
 
-load_dotenv(find_dotenv())
+from flask import Flask
+from flask_cors import CORS
 
-app = FastAPI()
+backend_dir = Path(__file__).resolve().parents[1]
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins="http://localhost:5173",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from routes.auth_routes import auth_bp
 
-supabase: Client = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_KEY"),
-)
+app = Flask(__name__)
+CORS(app)
+app.register_blueprint(auth_bp)
 
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-@app.post("/auth/login")
-def login(body: LoginRequest):
-    # Step 1: look up email by username in your profiles table
-    result = (
-        supabase.table("account")
-        .select("email")
-        .eq("username", body.username)
-        .single()
-        .execute()
-    )
-
-    if not result.data:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    email = result.data["email"]
-
-    # Step 2: hand email + password to Supabase — it does the hashing and comparing
-    try:
-        auth_response = supabase.auth.sign_in_with_password(
-            {"email": email, "password": body.password}
-        )
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    # Step 3: return the JWT and basic user info to the frontend
-    return {
-        "access_token": auth_response.session.access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": auth_response.user.id,
-            "email": auth_response.user.email,
-        }
-    }
+if __name__ == "__main__":
+    app.run(debug=True, port=8000)

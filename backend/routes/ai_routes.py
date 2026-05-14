@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from services.ai_services import AIService
 
 ai_bp = Blueprint("ai_bp", __name__)
 
@@ -17,7 +16,16 @@ def ask_ai():
             "message": "Question is required."
         }), 400
 
-    result = AIService.answer_question(role, question, user_id)
+    try:
+        from services.ai_services import AIService
+
+        result = AIService.answer_question(role, question, user_id)
+    except ImportError as error:
+        return jsonify({
+            "success": False,
+            "message": "AI service dependencies are not installed.",
+            "error": str(error)
+        }), 503
 
     return jsonify({
         "success": True,

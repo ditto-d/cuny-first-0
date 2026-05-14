@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router";
 import { GraduationCap, X, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { apiUrl } from "../utils/api";
 
 export function Login() {
     const navigate = useNavigate();
@@ -35,27 +36,32 @@ export function Login() {
 
         setIsLoading(true);
         try {
-            const response = await fetch("http://127.0.0.1:8000/auth/login", {
+            const response = await fetch(apiUrl("/auth/login"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ identifier: username, password }),
             });
 
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.detail);
-                toast.error(data.detail);
+                const message = data.message || data.detail || "Login failed.";
+                setError(message);
+                toast.error(message);
                 return;
             }
 
             // Store token and user info
             localStorage.setItem("access_token", data.access_token);
-            localStorage.setItem("username", data.user.first_name);
+            localStorage.setItem("username", data.user.first_name || data.user.email);
             localStorage.setItem("userRole", data.user.role);
             localStorage.setItem("userEmail", data.user.email);
+            if (data.user.student_id) localStorage.setItem("studentId", String(data.user.student_id));
+            if (data.user.instructor_id) localStorage.setItem("instructorId", String(data.user.instructor_id));
+            if (data.user.registrar_id) localStorage.setItem("registrarId", String(data.user.registrar_id));
 
-            toast.success(`Welcome back, ${data.user.first_name} ${data.user.last_name}!`);
+            const displayName = [data.user.first_name, data.user.last_name].filter(Boolean).join(" ") || data.user.email;
+            toast.success(`Welcome back, ${displayName}!`);
 
             // Navigate based on role
             if (data.user.role === "registrar") {
@@ -143,7 +149,7 @@ export function Login() {
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div>
                             <label htmlFor="username" className="block text-sm text-gray-700 mb-2 font-medium">
-                                Username
+                                Username or Email
                             </label>
                             <input
                                 id="username"
@@ -156,7 +162,7 @@ export function Login() {
                                 className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300 ${
                                     error ? "border-red-300" : "border-gray-200"
                                 }`}
-                                placeholder="Enter your username"
+                                placeholder="Enter your username or email"
                                 disabled={isLoading}
                             />
                         </div>
