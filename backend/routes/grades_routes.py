@@ -40,7 +40,7 @@ def route_submit_grade():
         letter_grade=data.get("letter_grade"),
     )
     return jsonify(result), (200 if result["success"] else 400)
- 
+
  
 @grades_bp.route("/grades/<int:student_id>", methods=["GET"])
 def route_get_grades(student_id):

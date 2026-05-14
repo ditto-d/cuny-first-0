@@ -152,8 +152,7 @@ def get_gpa(supabase, student_id: int) -> dict:
 # Academic Standing
 
 # Evaluates and updates a student's academic standing based on their GPA and disciplinary record.
-def evaluate_academic_standing(supabase, student_id: int,
-                                creator_id: int = None) -> dict:
+def evaluate_academic_standing(supabase, student_id: int, creator_id: int = None) -> dict:
     student_res = (
         supabase.table("student")
         .select("gpa")
@@ -498,9 +497,7 @@ def _count_completed_semesters(supabase, student_id: int) -> int:
     return len(semesters)
 
 # Updates the student's academic standing based on their GPA and disciplinary record.
-def _log_disciplinary(supabase, student_id: int, creator_id: int,
-                      action_type: str, reason: str,
-                      description: str = "") -> None:
+def _log_disciplinary(supabase, student_id: int, creator_id: int, action_type: str, reason: str, description: str = "") -> None:
     supabase.table("disciplinary").insert({
         "student_id":  student_id,
         "created_by":  creator_id,
