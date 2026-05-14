@@ -5,7 +5,7 @@ class RegistrationService:
 
     @staticmethod
     def check_course_load(section_ids):
-        return 2 <= len(section_ids) <= 4
+        return 1 <= len(section_ids) <= 4
 
     @staticmethod
     def has_duplicate_courses(sections):

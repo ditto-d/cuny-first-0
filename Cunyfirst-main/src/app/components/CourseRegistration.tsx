@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Search, Plus, Check, Trash2, Clock, BookOpen } from "lucide-react";
 import { toast } from "sonner";
-
+import { apiUrl, readApiError } from "../utils/api";
 interface Course {
   id: string;
   code: string;
@@ -125,19 +125,83 @@ export function CourseRegistration() {
     },
   ]);
 
-  const handleRegister = (id: string, courseName: string) => {
-    setCourses(courses.map(course =>
-      course.id === id ? { ...course, registered: true, waitlisted: false, seats: course.seats - 1 } : course
-    ));
-    toast.success(`Successfully registered for ${courseName}!`);
-  };
+  const STUDENT_ID = Number(localStorage.getItem("studentId") || 1);
 
-  const handleDrop = (id: string, courseName: string) => {
+const handleRegister = async (id: string, courseName: string) => {
+  try {
+    const response = await fetch(apiUrl("/registration/register"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        student_id: STUDENT_ID,
+        section_ids: [Number(id)],
+      }),
+    });
+
+    if (!response.ok) {
+      const message = await readApiError(response, "Registration failed.");
+      toast.error(message);
+      return;
+    }
+
+    const data = await response.json();
+
     setCourses(courses.map(course =>
-      course.id === id ? { ...course, registered: false, waitlisted: false, seats: course.seats + 1 } : course
+      course.id === id
+        ? {
+            ...course,
+            registered: data.enrolled_sections?.includes(Number(id)),
+            waitlisted: data.waitlisted_sections?.includes(Number(id)),
+            seats: data.enrolled_sections?.includes(Number(id))
+              ? course.seats - 1
+              : course.seats,
+          }
+        : course
     ));
+
+    if (data.waitlisted_sections?.includes(Number(id))) {
+      toast.info(`Added to waitlist for ${courseName}`);
+    } else {
+      toast.success(`Successfully registered for ${courseName}!`);
+    }
+  } catch {
+    toast.error("Could not connect to backend.");
+  }
+};
+
+const handleDrop = async (id: string, courseName: string) => {
+  try {
+    const response = await fetch(apiUrl("/registration/drop"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        student_id: STUDENT_ID,
+        section_id: Number(id),
+      }),
+    });
+
+    if (!response.ok) {
+      const message = await readApiError(response, "Drop failed.");
+      toast.error(message);
+      return;
+    }
+
+    setCourses(courses.map(course =>
+      course.id === id
+        ? {
+            ...course,
+            registered: false,
+            waitlisted: false,
+            seats: course.seats + 1,
+          }
+        : course
+    ));
+
     toast.success(`Dropped ${courseName}`);
-  };
+  } catch {
+    toast.error("Could not connect to backend.");
+  }
+};
 
   const handleWaitlist = (id: string, courseName: string) => {
     setCourses(courses.map(course =>
