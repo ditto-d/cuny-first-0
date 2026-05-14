@@ -1,10 +1,44 @@
-import { useState } from "react";
-import { Users, BookOpen, CheckCircle, Settings } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, BookOpen, CheckCircle, Settings, RefreshCw, XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { apiUrl, readApiError } from "../utils/api";
 
 type TabType = "courses" | "students" | "approvals" | "settings";
 
+type AdmissionApplication = {
+  admission_id: number;
+  application_type?: "student" | "instructor" | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  applicant_name: string;
+  email: string;
+  gpa?: number | null;
+  document_name?: string | null;
+  status: "Pending" | "Accepted" | "Rejected" | "Waitlisted";
+  submitted_at?: string | null;
+  review_justification?: string | null;
+};
+
+type ReviewInput = {
+  applicationType?: "student" | "instructor";
+  programId?: string;
+  departmentId?: string;
+  justification?: string;
+};
+
+type ApprovalResult = {
+  username?: string;
+  temporaryPassword?: string;
+};
+
 export function RegistrarDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>("courses");
+  const [applications, setApplications] = useState<AdmissionApplication[]>([]);
+  const [isLoadingApplications, setIsLoadingApplications] = useState(false);
+  const [applicationError, setApplicationError] = useState("");
+  const [reviewInputs, setReviewInputs] = useState<Record<number, ReviewInput>>({});
+  const [processingApplicationId, setProcessingApplicationId] = useState<number | null>(null);
+  const [approvalResults, setApprovalResults] = useState<Record<number, ApprovalResult>>({});
 
   const tabs = [
     { id: "courses" as TabType, label: "Manage Courses", icon: BookOpen },
@@ -33,28 +67,133 @@ export function RegistrarDashboard() {
     { id: "3", student: "Mike Davis", course: "CS 301", type: "Waitlist", status: "Approved" },
   ];
 
-  const instructorRequests = [
-    {
-      id: "1",
-      name: "Dr. Emily Chen",
-      email: "emily.chen@example.com",
-      universityEmail: "emily.chen@cuny.edu",
-      employeeId: "EMP98765",
-      department: "Computer Science",
-      submittedDate: "2026-04-22",
-      status: "Pending",
-    },
-    {
-      id: "2",
-      name: "Prof. Michael Roberts",
-      email: "m.roberts@example.com",
-      universityEmail: "m.roberts@cuny.edu",
-      employeeId: "EMP87654",
-      department: "Mathematics",
-      submittedDate: "2026-04-21",
-      status: "Pending",
-    },
-  ];
+  const fetchApplications = async () => {
+    setIsLoadingApplications(true);
+    setApplicationError("");
+
+    try {
+      const response = await fetch(apiUrl("/applications"));
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not load applications."));
+      }
+
+      const data = await response.json();
+      setApplications(data.applications ?? []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not load applications.";
+      setApplicationError(message);
+      toast.error(message);
+    } finally {
+      setIsLoadingApplications(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "approvals") {
+      fetchApplications();
+    }
+  }, [activeTab]);
+
+  const updateReviewInput = (admissionId: number, values: ReviewInput) => {
+    setReviewInputs((current) => ({
+      ...current,
+      [admissionId]: {
+        ...current[admissionId],
+        ...values,
+      },
+    }));
+  };
+
+  const getReviewInput = (application: AdmissionApplication) => {
+    const savedInput = reviewInputs[application.admission_id] ?? {};
+    const inferredType = application.application_type ?? (application.gpa !== null && application.gpa !== undefined ? "student" : "instructor");
+
+    return {
+      applicationType: savedInput.applicationType ?? inferredType,
+      programId: savedInput.programId ?? "",
+      departmentId: savedInput.departmentId ?? "",
+      justification: savedInput.justification ?? "",
+    };
+  };
+
+  const getRegistrarId = () => {
+    const registrarId = localStorage.getItem("registrarId");
+    return registrarId ? Number(registrarId) : undefined;
+  };
+
+  const approveApplication = async (application: AdmissionApplication) => {
+    const input = getReviewInput(application);
+    setProcessingApplicationId(application.admission_id);
+
+    try {
+      const payload = {
+        registrar_id: getRegistrarId(),
+        application_type: input.applicationType,
+        program_id: input.applicationType === "student" && input.programId ? Number(input.programId) : undefined,
+        department_id: input.applicationType === "instructor" && input.departmentId ? Number(input.departmentId) : undefined,
+        override_justification: input.justification || undefined,
+      };
+
+      const response = await fetch(apiUrl(`/applications/${application.admission_id}/approve`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Application approval failed.");
+      }
+
+      setApprovalResults((current) => ({
+        ...current,
+        [application.admission_id]: {
+          username: data.account?.username,
+          temporaryPassword: data.temporary_password,
+        },
+      }));
+      toast.success("Application approved and account created.");
+      await fetchApplications();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Application approval failed.");
+    } finally {
+      setProcessingApplicationId(null);
+    }
+  };
+
+  const rejectApplication = async (application: AdmissionApplication) => {
+    const input = getReviewInput(application);
+    setProcessingApplicationId(application.admission_id);
+
+    try {
+      const payload = {
+        registrar_id: getRegistrarId(),
+        application_type: input.applicationType,
+        program_id: input.applicationType === "student" && input.programId ? Number(input.programId) : undefined,
+        justification: input.justification || undefined,
+      };
+
+      const response = await fetch(apiUrl(`/applications/${application.admission_id}/reject`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Application rejection failed.");
+      }
+
+      toast.success("Application rejected.");
+      await fetchApplications();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Application rejection failed.");
+    } finally {
+      setProcessingApplicationId(null);
+    }
+  };
+
+  const pendingApplications = applications.filter((application) => application.status === "Pending").length;
 
   return (
     <div className="p-8">
@@ -190,64 +329,180 @@ export function RegistrarDashboard() {
 
             {activeTab === "approvals" && (
               <div className="space-y-8">
-                {/* Instructor Access Requests */}
+                {/* Admission Applications */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-gray-900 text-lg font-semibold">Instructor Access Requests</h2>
-                    <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
-                      {instructorRequests.filter(r => r.status === "Pending").length} Pending
-                    </span>
+                    <div>
+                      <h2 className="text-gray-900 text-lg font-semibold">Admission Applications</h2>
+                      <p className="text-sm text-gray-600">Review student and instructor applications, then create approved accounts.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                        {pendingApplications} Pending
+                      </span>
+                      <button
+                        onClick={fetchApplications}
+                        disabled={isLoadingApplications}
+                        className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isLoadingApplications ? "animate-spin" : ""}`} />
+                        Refresh
+                      </button>
+                    </div>
                   </div>
+
+                  {applicationError && (
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                      <XCircle className="w-4 h-4" />
+                      {applicationError}
+                    </div>
+                  )}
+
                   <div className="space-y-4">
-                    {instructorRequests.map((request) => (
-                      <div key={request.id} className="border-2 border-orange-200 bg-orange-50 rounded-lg p-5">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h3 className="text-gray-900 font-semibold text-lg">{request.name}</h3>
-                              <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
-                                {request.status}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                              <div>
-                                <p className="text-gray-600 mb-1">Employee ID</p>
-                                <p className="text-gray-900 font-medium">{request.employeeId}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600 mb-1">Department</p>
-                                <p className="text-gray-900 font-medium">{request.department}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600 mb-1">University Email</p>
-                                <p className="text-gray-900 font-medium">{request.universityEmail}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600 mb-1">Personal Email</p>
-                                <p className="text-gray-900 font-medium">{request.email}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600 mb-1">Submitted Date</p>
-                                <p className="text-gray-900 font-medium">{request.submittedDate}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        {request.status === "Pending" && (
-                          <div className="flex gap-3 pt-3 border-t border-orange-200">
-                            <button className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
-                              Approve & Create Account
-                            </button>
-                            <button className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
-                              Deny Request
-                            </button>
-                            <button className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                              Request More Info
-                            </button>
-                          </div>
-                        )}
+                    {isLoadingApplications && applications.length === 0 && (
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">
+                        Loading applications...
                       </div>
-                    ))}
+                    )}
+
+                    {!isLoadingApplications && applications.length === 0 && (
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">
+                        No admission applications found.
+                      </div>
+                    )}
+
+                    {applications.map((application) => {
+                      const input = getReviewInput(application);
+                      const isPending = application.status === "Pending";
+                      const isProcessing = processingApplicationId === application.admission_id;
+                      const result = approvalResults[application.admission_id];
+
+                      return (
+                        <div key={application.admission_id} className="border border-gray-200 bg-white rounded-lg p-5">
+                          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-3 mb-2">
+                                <h3 className="text-gray-900 font-semibold text-lg">{application.applicant_name}</h3>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  application.status === "Pending"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : application.status === "Accepted"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}>
+                                  {application.status}
+                                </span>
+                                <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium capitalize">
+                                  {input.applicationType}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
+                                <div>
+                                  <p className="text-gray-600 mb-1">Email</p>
+                                  <p className="text-gray-900 font-medium break-all">{application.email}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600 mb-1">GPA</p>
+                                  <p className="text-gray-900 font-medium">{application.gpa ?? "N/A"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600 mb-1">Document</p>
+                                  <p className="text-gray-900 font-medium">{application.document_name ?? "N/A"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600 mb-1">Submitted</p>
+                                  <p className="text-gray-900 font-medium">
+                                    {application.submitted_at ? new Date(application.submitted_at).toLocaleDateString() : "N/A"}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {result && (
+                            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                              <p className="font-medium mb-1">Account created</p>
+                              <p>Username/email: {result.username || application.email}</p>
+                              {result.temporaryPassword && <p>Temporary password: {result.temporaryPassword}</p>}
+                            </div>
+                          )}
+
+                          {isPending && (
+                            <div className="pt-4 border-t border-gray-200 space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {!application.application_type && (
+                                  <div>
+                                    <label className="block text-sm text-gray-700 mb-2 font-medium">Application Type</label>
+                                    <select
+                                      value={input.applicationType}
+                                      onChange={(event) => updateReviewInput(application.admission_id, { applicationType: event.target.value as "student" | "instructor" })}
+                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                      <option value="student">Student</option>
+                                      <option value="instructor">Instructor</option>
+                                    </select>
+                                  </div>
+                                )}
+
+                                {input.applicationType === "student" ? (
+                                  <div>
+                                    <label className="block text-sm text-gray-700 mb-2 font-medium">Program ID</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={input.programId}
+                                      onChange={(event) => updateReviewInput(application.admission_id, { programId: event.target.value })}
+                                      placeholder="Optional"
+                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <label className="block text-sm text-gray-700 mb-2 font-medium">Department ID</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={input.departmentId}
+                                      onChange={(event) => updateReviewInput(application.admission_id, { departmentId: event.target.value })}
+                                      placeholder="Required"
+                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="md:col-span-2">
+                                  <label className="block text-sm text-gray-700 mb-2 font-medium">Justification</label>
+                                  <input
+                                    type="text"
+                                    value={input.justification}
+                                    onChange={(event) => updateReviewInput(application.admission_id, { justification: event.target.value })}
+                                    placeholder="Required for override approvals or eligible student rejections"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-3">
+                                <button
+                                  onClick={() => approveApplication(application)}
+                                  disabled={isProcessing}
+                                  className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-60"
+                                >
+                                  {isProcessing ? "Processing..." : "Approve & Create Account"}
+                                </button>
+                                <button
+                                  onClick={() => rejectApplication(application)}
+                                  disabled={isProcessing}
+                                  className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-60"
+                                >
+                                  {isProcessing ? "Processing..." : "Deny Application"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
