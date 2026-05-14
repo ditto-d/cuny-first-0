@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { Login } from "./components/Login";
 import { NotFound } from "./components/NotFound";
 import { Register } from "./components/Register";
+import { PasswordChange } from "./components/PasswordChange";
 import { PendingApproval } from "./components/PendingApproval";
 import { StudentDashboard } from "./components/StudentDashboard";
 import { CourseRegistration } from "./components/CourseRegistration";
@@ -26,6 +27,10 @@ export const router = createBrowserRouter([
     {
         path: "/register",
         Component: Register,
+    },
+    {
+        path: "/change-password",
+        Component: PasswordChange,
     },
     {
         path: "/pending-approval",

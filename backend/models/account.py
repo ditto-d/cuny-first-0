@@ -9,6 +9,8 @@ class Account:
     first_name: str
     last_name: str
     email: str
+    auth_user_id: str | None = None
+    must_change_password: bool = False
 
     @classmethod
     def from_supabase(cls, data: dict[str, Any]) -> "Account":
@@ -18,6 +20,8 @@ class Account:
             first_name=data.get("first_name") or data.get("firstName") or "",
             last_name=data.get("last_name") or data.get("lastName") or "",
             email=data.get("email") or "",
+            auth_user_id=data.get("auth_user_id"),
+            must_change_password=bool(data.get("must_change_password", False)),
         )
 
     def to_auth_response(self, supabase_user_id: str | None = None) -> dict[str, Any]:
@@ -30,6 +34,7 @@ class Account:
             "first_name": self.first_name,
             "last_name": self.last_name,
             "role": self.account_type,
+            "must_change_password": self.must_change_password,
             "student_id": profile_id if self.account_type == "student" else None,
             "instructor_id": profile_id if self.account_type == "instructor" else None,
             "registrar_id": profile_id if self.account_type == "registrar" else None,

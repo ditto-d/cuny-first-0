@@ -13,3 +13,15 @@ def login():
 
     result, status_code = AuthService.login(identifier, password)
     return jsonify(result), status_code
+
+
+@auth_bp.route("/change-password", methods=["POST"])
+def change_password():
+    data = request.get_json(silent=True) or {}
+    auth_header = request.headers.get("Authorization", "")
+    bearer_token = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
+    access_token = bearer_token or data.get("access_token") or ""
+    new_password = data.get("new_password") or ""
+
+    result, status_code = AuthService.change_password(access_token, new_password)
+    return jsonify(result), status_code

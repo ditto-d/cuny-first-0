@@ -66,12 +66,18 @@ export function Login() {
             localStorage.setItem("username", data.user.first_name || data.user.email);
             localStorage.setItem("userRole", data.user.role);
             localStorage.setItem("userEmail", data.user.email);
+            localStorage.setItem("userMustChangePassword", String(Boolean(data.user.must_change_password)));
             if (data.user.student_id) localStorage.setItem("studentId", String(data.user.student_id));
             if (data.user.instructor_id) localStorage.setItem("instructorId", String(data.user.instructor_id));
             if (data.user.registrar_id) localStorage.setItem("registrarId", String(data.user.registrar_id));
 
             const displayName = [data.user.first_name, data.user.last_name].filter(Boolean).join(" ") || data.user.email;
             toast.success(`Welcome back, ${displayName}!`);
+
+            if (data.user.must_change_password) {
+                navigate("/change-password", { replace: true });
+                return;
+            }
 
             // Navigate based on role
             if (data.user.role === "registrar") {
