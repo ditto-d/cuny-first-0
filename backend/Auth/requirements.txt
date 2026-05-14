@@ -1,4 +1,4 @@
-fastapi
-uvicorn[standard]
+Flask
+flask-cors
 supabase
 python-dotenv

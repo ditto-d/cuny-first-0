@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS ai_query_log, admission, disciplinary, performance,
 -- ACCOUNT — parent of the "is a" specialization
 CREATE TABLE account (
     user_id        INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    username       VARCHAR(100) UNIQUE,
     account_type   VARCHAR(50) NOT NULL CHECK (account_type IN ('student','instructor','registrar')),
     first_name     VARCHAR(100) NOT NULL,
     last_name      VARCHAR(100) NOT NULL,
@@ -150,8 +151,13 @@ CREATE TABLE disciplinary (
 -- ADMISSION
 CREATE TABLE admission (
     admission_id    INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    application_type VARCHAR(50) CHECK (application_type IN ('student','instructor')),
+    first_name      VARCHAR(100),
+    last_name       VARCHAR(100),
     applicant_name  VARCHAR(100) NOT NULL,
     email           VARCHAR(255) NOT NULL,
+    gpa             NUMERIC(3,2) CHECK (gpa >= 0.00 AND gpa <= 4.00),
+    document_name   VARCHAR(255),
     status          VARCHAR(50) CHECK (status IN ('Pending','Accepted','Rejected','Waitlisted')),
     registrar_id    INT,
     submitted_at    TIMESTAMPTZ DEFAULT NOW(),
