@@ -6,6 +6,12 @@ from services.application_service import ApplicationService
 application_bp = Blueprint("application_bp", __name__, url_prefix="/applications")
 
 
+@application_bp.route("", methods=["GET"])
+def list_applications():
+    result, status_code = ApplicationService.list_applications(request.args.get("status"))
+    return jsonify(result), status_code
+
+
 def _build_application(application_type: str) -> tuple[Application | None, dict[str, str]]:
     errors: dict[str, str] = {}
     form = request.form
@@ -68,4 +74,34 @@ def submit_instructor_application():
         return jsonify({"success": False, "message": "Please fix the form errors.", "errors": errors}), 400
 
     result, status_code = ApplicationService.submit_application(application)
+    return jsonify(result), status_code
+
+
+@application_bp.route("/<int:admission_id>", methods=["GET"])
+def get_application_review(admission_id: int):
+    review_data = {
+        "application_type": request.args.get("application_type"),
+        "program_id": request.args.get("program_id"),
+    }
+    result, status_code = ApplicationService.get_application_review(admission_id, review_data)
+    return jsonify(result), status_code
+
+
+@application_bp.route("/<int:admission_id>/approve", methods=["POST"])
+def approve_application(admission_id: int):
+    data = request.get_json(silent=True) or {}
+
+    try:
+        result, status_code = ApplicationService.approve_application(admission_id, data)
+    except RuntimeError as error:
+        return jsonify({"success": False, "message": str(error)}), 500
+
+    return jsonify(result), status_code
+
+
+@application_bp.route("/<int:admission_id>/reject", methods=["POST"])
+def reject_application(admission_id: int):
+    data = request.get_json(silent=True) or {}
+
+    result, status_code = ApplicationService.reject_application(admission_id, data)
     return jsonify(result), status_code

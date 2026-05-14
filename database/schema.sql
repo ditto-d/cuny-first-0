@@ -8,11 +8,13 @@ DROP TABLE IF EXISTS ai_query_log, admission, disciplinary, performance,
 CREATE TABLE account (
     user_id        INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     username       VARCHAR(100) UNIQUE,
+    auth_user_id   UUID UNIQUE,
     account_type   VARCHAR(50) NOT NULL CHECK (account_type IN ('student','instructor','registrar')),
     first_name     VARCHAR(100) NOT NULL,
     last_name      VARCHAR(100) NOT NULL,
     email          VARCHAR(255) UNIQUE NOT NULL,
     password_hash  VARCHAR(255) NOT NULL,
+    must_change_password BOOLEAN DEFAULT TRUE,
     dob            DATE,
     created_at     TIMESTAMPTZ DEFAULT NOW()
 );
@@ -34,6 +36,7 @@ CREATE TABLE program (
     degree_type       VARCHAR(50) CHECK (degree_type IN ('Associate','Bachelor','Master','Doctorate')),
     department_id     INT NOT NULL,
     total_credit_req  INT CHECK (total_credit_req > 0),
+    student_quota     INT DEFAULT 10 CHECK (student_quota > 0),
     FOREIGN KEY (department_id) REFERENCES department(department_id)
 );
 
@@ -160,6 +163,8 @@ CREATE TABLE admission (
     document_name   VARCHAR(255),
     status          VARCHAR(50) CHECK (status IN ('Pending','Accepted','Rejected','Waitlisted')),
     registrar_id    INT,
+    review_justification TEXT,
+    reviewed_at     TIMESTAMPTZ,
     submitted_at    TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (registrar_id) REFERENCES registrar(registrar_id) ON DELETE SET NULL
 );
