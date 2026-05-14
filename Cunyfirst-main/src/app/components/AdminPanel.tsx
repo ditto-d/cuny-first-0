@@ -32,6 +32,23 @@ type ApprovalResult = {
   temporaryPassword?: string;
 };
 
+type Complaint = {
+  complaint_id: number;
+  complainant_id: number;
+  complainant_role: string;
+  target_id: number;
+  description: string;
+  status: "Pending" | "Resolved";
+  created_at: string;
+};
+
+type GraduationApplication = {
+  application_id: number;
+  student_id: number;
+  status: "Pending" | "Approved" | "Rejected";
+  applied_at: string;
+};
+
 export function RegistrarDashboard() {
   const [searchParams] = useSearchParams();
   const [applications, setApplications] = useState<AdmissionApplication[]>([]);
@@ -40,6 +57,18 @@ export function RegistrarDashboard() {
   const [reviewInputs, setReviewInputs] = useState<Record<number, ReviewInput>>({});
   const [processingApplicationId, setProcessingApplicationId] = useState<number | null>(null);
   const [approvalResults, setApprovalResults] = useState<Record<number, ApprovalResult>>({});
+
+  // Complaints state
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [isLoadingComplaints, setIsLoadingComplaints] = useState(false);
+  const [complaintActions, setComplaintActions] = useState<Record<number, { action: string; justification: string }>>({});
+  const [processingComplaintId, setProcessingComplaintId] = useState<number | null>(null);
+
+  // Graduation state
+  const [graduationApps, setGraduationApps] = useState<GraduationApplication[]>([]);
+  const [isLoadingGraduation, setIsLoadingGraduation] = useState(false);
+  const [graduationJustifications, setGraduationJustifications] = useState<Record<number, string>>({});
+  const [processingGraduationId, setProcessingGraduationId] = useState<number | null>(null);
 
   const requestedTab = searchParams.get("tab");
   const activeTab: TabType =
@@ -88,11 +117,48 @@ export function RegistrarDashboard() {
     }
   };
 
+  const fetchComplaints = async () => {
+    setIsLoadingComplaints(true);
+    try {
+      const response = await fetch(apiUrl("/complaints/pending"));
+      if (response.ok) {
+        const data = await response.json();
+        setComplaints(data.complaints ?? []);
+      }
+    } catch {
+      toast.error("Could not load complaints.");
+    } finally {
+      setIsLoadingComplaints(false);
+    }
+  };
+
+  const fetchGraduationApps = async () => {
+    setIsLoadingGraduation(true);
+    try {
+      const response = await fetch(apiUrl("/graduation/pending"));
+      if (response.ok) {
+        const data = await response.json();
+        setGraduationApps(data.applications ?? []);
+      }
+    } catch {
+      toast.error("Could not load graduation applications.");
+    } finally {
+      setIsLoadingGraduation(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "approvals") {
       fetchApplications();
+      fetchComplaints();
+      fetchGraduationApps();
     }
   }, [activeTab]);
+
+  const getRegistrarId = () => {
+    const registrarId = localStorage.getItem("registrarId");
+    return registrarId ? Number(registrarId) : undefined;
+  };
 
   const updateReviewInput = (admissionId: number, values: ReviewInput) => {
     setReviewInputs((current) => ({
@@ -114,11 +180,6 @@ export function RegistrarDashboard() {
       departmentId: savedInput.departmentId ?? "",
       justification: savedInput.justification ?? "",
     };
-  };
-
-  const getRegistrarId = () => {
-    const registrarId = localStorage.getItem("registrarId");
-    return registrarId ? Number(registrarId) : undefined;
   };
 
   const approveApplication = async (application: AdmissionApplication) => {
@@ -193,6 +254,68 @@ export function RegistrarDashboard() {
     }
   };
 
+  const handleResolveComplaint = async (complaintId: number) => {
+    const input = complaintActions[complaintId];
+    if (!input?.action) {
+      toast.error("Please select an action.");
+      return;
+    }
+
+    setProcessingComplaintId(complaintId);
+    try {
+      const response = await fetch(apiUrl(`/complaints/${complaintId}/resolve`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registrar_id: getRegistrarId(),
+          action: input.action,
+          justification: input.justification || "",
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        toast.error(data.message || "Could not resolve complaint.");
+        return;
+      }
+
+      toast.success("Complaint resolved.");
+      fetchComplaints();
+    } catch {
+      toast.error("Could not connect to backend.");
+    } finally {
+      setProcessingComplaintId(null);
+    }
+  };
+
+  const handleReviewGraduation = async (applicationId: number, approved: boolean) => {
+    setProcessingGraduationId(applicationId);
+    try {
+      const response = await fetch(apiUrl(`/graduation/${applicationId}/review`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registrar_id: getRegistrarId(),
+          approved,
+          justification: graduationJustifications[applicationId] || "",
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        toast.error(data.message || "Could not process graduation application.");
+        return;
+      }
+
+      toast.success(approved ? "Student graduated successfully." : "Application rejected.");
+      fetchGraduationApps();
+    } catch {
+      toast.error("Could not connect to backend.");
+    } finally {
+      setProcessingGraduationId(null);
+    }
+  };
+
   const pendingApplications = applications.filter((application) => application.status === "Pending").length;
 
   return (
@@ -235,12 +358,8 @@ export function RegistrarDashboard() {
                           <td className="px-6 py-4 text-gray-600">{course.capacity}</td>
                           <td className="px-6 py-4">
                             <div className="flex gap-2">
-                              <button className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                                Edit
-                              </button>
-                              <button className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition-colors">
-                                Delete
-                              </button>
+                              <button className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors">Edit</button>
+                              <button className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition-colors">Delete</button>
                             </div>
                           </td>
                         </tr>
@@ -279,22 +398,14 @@ export function RegistrarDashboard() {
                           <td className="px-6 py-4 text-gray-600">{student.email}</td>
                           <td className="px-6 py-4 text-gray-600">{student.credits}</td>
                           <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-sm ${
-                              student.status === "Active"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-yellow-100 text-yellow-700"
-                            }`}>
+                            <span className={`px-3 py-1 rounded-full text-sm ${student.status === "Active" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
                               {student.status}
                             </span>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex gap-2">
-                              <button className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                                View
-                              </button>
-                              <button className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                                Edit
-                              </button>
+                              <button className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors">View</button>
+                              <button className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors">Edit</button>
                             </div>
                           </td>
                         </tr>
@@ -338,17 +449,11 @@ export function RegistrarDashboard() {
 
                   <div className="space-y-4">
                     {isLoadingApplications && applications.length === 0 && (
-                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">
-                        Loading applications...
-                      </div>
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">Loading applications...</div>
                     )}
-
                     {!isLoadingApplications && applications.length === 0 && (
-                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">
-                        No admission applications found.
-                      </div>
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">No admission applications found.</div>
                     )}
-
                     {applications.map((application) => {
                       const input = getReviewInput(application);
                       const isPending = application.status === "Pending";
@@ -361,13 +466,7 @@ export function RegistrarDashboard() {
                             <div>
                               <div className="flex flex-wrap items-center gap-3 mb-2">
                                 <h3 className="text-gray-900 font-semibold text-lg">{application.applicant_name}</h3>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                  application.status === "Pending"
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : application.status === "Accepted"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-red-100 text-red-700"
-                                }`}>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${application.status === "Pending" ? "bg-yellow-100 text-yellow-700" : application.status === "Accepted" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                                   {application.status}
                                 </span>
                                 <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium capitalize">
@@ -421,7 +520,6 @@ export function RegistrarDashboard() {
                                     </select>
                                   </div>
                                 )}
-
                                 {input.applicationType === "student" ? (
                                   <div>
                                     <label className="block text-sm text-gray-700 mb-2 font-medium">Program ID</label>
@@ -447,7 +545,6 @@ export function RegistrarDashboard() {
                                     />
                                   </div>
                                 )}
-
                                 <div className="md:col-span-2">
                                   <label className="block text-sm text-gray-700 mb-2 font-medium">Justification</label>
                                   <input
@@ -459,7 +556,6 @@ export function RegistrarDashboard() {
                                   />
                                 </div>
                               </div>
-
                               <div className="flex flex-wrap gap-3">
                                 <button
                                   onClick={() => approveApplication(application)}
@@ -501,27 +597,190 @@ export function RegistrarDashboard() {
                             <p className="text-sm text-gray-600">{approval.course} - {approval.type} Request</p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              approval.status === "Pending"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-green-100 text-green-700"
-                            }`}>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${approval.status === "Pending" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>
                               {approval.status}
                             </span>
                             {approval.status === "Pending" && (
                               <div className="flex gap-2">
-                                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                                  Approve
-                                </button>
-                                <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                                  Deny
-                                </button>
+                                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Approve</button>
+                                <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Deny</button>
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Complaints */}
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h2 className="text-gray-900 text-lg font-semibold">Complaints</h2>
+                      <p className="text-sm text-gray-600">Review and resolve pending complaints from students and instructors.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                        {complaints.filter(c => c.status === "Pending").length} Pending
+                      </span>
+                      <button
+                        onClick={fetchComplaints}
+                        disabled={isLoadingComplaints}
+                        className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isLoadingComplaints ? "animate-spin" : ""}`} />
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {isLoadingComplaints && (
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">Loading complaints...</div>
+                    )}
+                    {!isLoadingComplaints && complaints.length === 0 && (
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">No pending complaints.</div>
+                    )}
+                    {complaints.map((complaint) => {
+                      const input = complaintActions[complaint.complaint_id] ?? { action: "", justification: "" };
+                      const isProcessing = processingComplaintId === complaint.complaint_id;
+
+                      return (
+                        <div key={complaint.complaint_id} className="border border-gray-200 bg-white rounded-lg p-5">
+                          <div className="mb-3">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">{complaint.status}</span>
+                              <span className="text-sm text-gray-500">{new Date(complaint.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-1">
+                              <span className="font-medium">From:</span> Account #{complaint.complainant_id} ({complaint.complainant_role})
+                            </p>
+                            <p className="text-sm text-gray-600 mb-2">
+                              <span className="font-medium">Against:</span> Account #{complaint.target_id}
+                            </p>
+                            <p className="text-gray-900">{complaint.description}</p>
+                          </div>
+
+                          {complaint.status === "Pending" && (
+                            <div className="pt-3 border-t border-gray-200 space-y-3">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-sm text-gray-700 mb-1 font-medium">Action</label>
+                                  <select
+                                    value={input.action}
+                                    onChange={(e) => setComplaintActions(prev => ({ ...prev, [complaint.complaint_id]: { ...input, action: e.target.value } }))}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="">Select action...</option>
+                                    <option value="warn_subject">Warn Subject</option>
+                                    <option value="warn_complainant">Warn Complainant (false complaint)</option>
+                                    <option value="dismiss">Dismiss</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-sm text-gray-700 mb-1 font-medium">Justification</label>
+                                  <input
+                                    type="text"
+                                    value={input.justification}
+                                    onChange={(e) => setComplaintActions(prev => ({ ...prev, [complaint.complaint_id]: { ...input, justification: e.target.value } }))}
+                                    placeholder="Reason for decision"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleResolveComplaint(complaint.complaint_id)}
+                                disabled={isProcessing}
+                                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60"
+                              >
+                                {isProcessing ? "Resolving..." : "Resolve Complaint"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Graduation Applications */}
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h2 className="text-gray-900 text-lg font-semibold">Graduation Applications</h2>
+                      <p className="text-sm text-gray-600">Review student graduation applications and verify required courses.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                        {graduationApps.filter(g => g.status === "Pending").length} Pending
+                      </span>
+                      <button
+                        onClick={fetchGraduationApps}
+                        disabled={isLoadingGraduation}
+                        className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isLoadingGraduation ? "animate-spin" : ""}`} />
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {isLoadingGraduation && (
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">Loading graduation applications...</div>
+                    )}
+                    {!isLoadingGraduation && graduationApps.length === 0 && (
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">No pending graduation applications.</div>
+                    )}
+                    {graduationApps.map((app) => {
+                      const isProcessing = processingGraduationId === app.application_id;
+
+                      return (
+                        <div key={app.application_id} className="border border-gray-200 bg-white rounded-lg p-5">
+                          <div className="mb-3">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">{app.status}</span>
+                              <span className="text-sm text-gray-500">{new Date(app.applied_at).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Student ID:</span> {app.student_id}
+                            </p>
+                          </div>
+
+                          {app.status === "Pending" && (
+                            <div className="pt-3 border-t border-gray-200 space-y-3">
+                              <div>
+                                <label className="block text-sm text-gray-700 mb-1 font-medium">Justification (required if rejecting)</label>
+                                <input
+                                  type="text"
+                                  value={graduationJustifications[app.application_id] ?? ""}
+                                  onChange={(e) => setGraduationJustifications(prev => ({ ...prev, [app.application_id]: e.target.value }))}
+                                  placeholder="Reason if rejecting..."
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={() => handleReviewGraduation(app.application_id, true)}
+                                  disabled={isProcessing}
+                                  className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-60"
+                                >
+                                  {isProcessing ? "Processing..." : "Approve — Graduate Student"}
+                                </button>
+                                <button
+                                  onClick={() => handleReviewGraduation(app.application_id, false)}
+                                  disabled={isProcessing}
+                                  className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-60"
+                                >
+                                  {isProcessing ? "Processing..." : "Reject Application"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
