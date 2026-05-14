@@ -13,6 +13,10 @@ import { InstructorDashboard } from "./components/InstructorDashboard";
 import { GuestDashboard } from "./components/GuestDashboard";
 import { Profile } from "./components/Profile";
 import { Layout } from "./components/Layout";
+import { StudentGrades } from "./components/StudentGrades";
+import { StudentReviews } from "./components/StudentReviews";
+import { StudentComplaints } from "./components/StudentComplaints";
+import { StudentGraduation } from "./components/StudentGraduation";
 
 export const router = createBrowserRouter([
     {
@@ -35,6 +39,10 @@ export const router = createBrowserRouter([
             { path: "register", Component: CourseRegistration },
             { path: "schedule", Component: MySchedule },
             { path: "waitlist", Component: Waitlist },
+            { path: "grades", Component: StudentGrades },
+            { path: "reviews", Component: StudentReviews },
+            { path: "complaints", Component: StudentComplaints },
+            { path: "graduation", Component: StudentGraduation },
             { path: "ai-advisor", Component: AIAdvisor },
             { path: "profile", Component: Profile },
         ],

@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
-import { Home, BookOpen, Calendar, Clock, Settings, LogOut, Users, FileText, Megaphone, CheckCircle, Eye, User, Bot } from "lucide-react";
+import { Home, BookOpen, Calendar, Clock, Settings, LogOut, Users, FileText, Megaphone, CheckCircle, Eye, User, Bot, MessageSquare, GraduationCap, Bell } from "lucide-react";
 
 export function Layout() {
   const navigate = useNavigate();
@@ -18,6 +18,10 @@ export function Layout() {
     { id: "register", icon: BookOpen, label: "Register Courses", path: isGuest ? "/guest-student" : "/student/register" },
     { id: "schedule", icon: Calendar, label: "My Schedule", path: isGuest ? "/guest-student" : "/student/schedule" },
     { id: "waitlist", icon: Clock, label: "Waitlist", path: isGuest ? "/guest-student" : "/student/waitlist" },
+    { id: "grades", icon: FileText, label: "My Grades", path: isGuest ? "/guest-student" : "/student/grades" },
+    { id: "reviews", icon: MessageSquare, label: "Reviews", path: isGuest ? "/guest-student" : "/student/reviews" },
+    { id: "complaints", icon: Bell, label: "Complaints", path: isGuest ? "/guest-student" : "/student/complaints" },
+    { id: "graduation", icon: GraduationCap, label: "Graduation", path: isGuest ? "/guest-student" : "/student/graduation" },
     { id: "ai-advisor", icon: Bot, label: "AI Advisor", path: isGuest ? "/guest-student" : "/student/ai-advisor" },
   ];
 
