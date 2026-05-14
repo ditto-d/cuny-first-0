@@ -1,6 +1,6 @@
 from ast import Return
 from datetime import date, datetime, timezone
-from backend.utils import letter_to_points, VALID_GRADES
+from services.utils import letter_to_points, VALID_GRADES
 
 # File: Handles grade submission, retrieval, and GPA calculation.
 
