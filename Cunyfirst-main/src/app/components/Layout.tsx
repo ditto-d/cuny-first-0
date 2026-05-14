@@ -27,10 +27,10 @@ export function Layout() {
 
   const instructorNavItems = [
     { id: "dashboard", icon: Home, label: "Dashboard", path: isGuest ? "/guest-instructor" : "/instructor" },
-    { id: "courses", icon: BookOpen, label: "My Courses", path: isGuest ? "/guest-instructor" : "/instructor" },
-    { id: "rosters", icon: Users, label: "Student Rosters", path: isGuest ? "/guest-instructor" : "/instructor" },
-    { id: "grades", icon: FileText, label: "Grades", path: isGuest ? "/guest-instructor" : "/instructor" },
-    { id: "announcements", icon: Megaphone, label: "Announcements", path: isGuest ? "/guest-instructor" : "/instructor" },
+    { id: "courses", icon: BookOpen, label: "My Courses", path: isGuest ? "/guest-instructor" : "/instructor?tab=courses" },
+    { id: "rosters", icon: Users, label: "Student Rosters", path: isGuest ? "/guest-instructor" : "/instructor?tab=rosters" },
+    { id: "grades", icon: FileText, label: "Grades", path: isGuest ? "/guest-instructor" : "/instructor?tab=grades" },
+    { id: "announcements", icon: Megaphone, label: "Announcements", path: isGuest ? "/guest-instructor" : "/instructor?tab=announcements" },
   ];
 
   const registrarNavItems = [
@@ -111,6 +111,7 @@ export function Layout() {
             const currentPath = `${location.pathname}${location.search}`;
             const isActive =
               currentPath === item.path ||
+              (isInstructor && !location.search && item.id === "dashboard" && item.path === "/instructor") ||
               (isRegistrar && !location.search && item.id === "courses" && item.path === "/registrar?tab=courses") ||
               (isGuest && location.pathname === item.path);
             return (
