@@ -36,61 +36,76 @@ export const router = createBrowserRouter([
         path: "/pending-approval",
         Component: PendingApproval,
     },
-    {
-        path: "/student",
-        Component: Layout,
-        children: [
-            { index: true, Component: StudentDashboard },
-            { path: "register", Component: CourseRegistration },
-            { path: "schedule", Component: MySchedule },
-            { path: "waitlist", Component: Waitlist },
-            { path: "grades", Component: StudentGrades },
-            { path: "reviews", Component: StudentReviews },
-            { path: "complaints", Component: StudentComplaints },
-            { path: "graduation", Component: StudentGraduation },
-            { path: "ai-advisor", Component: AIAdvisor },
-            { path: "profile", Component: Profile },
-        ],
-    },
-    {
-        path: "/instructor",
-        Component: Layout,
-        children: [
-            { index: true, Component: InstructorDashboard },
-            { path: "profile", Component: Profile },
-        ],
-    },
-    {
-        path: "/registrar",
-        Component: Layout,
-        children: [
-            { index: true, Component: RegistrarDashboard },
-            { path: "profile", Component: Profile },
-        ],
-    },
-    {
-        path: "/guest-student",
-        Component: Layout,
-        children: [
-            { index: true, Component: GuestDashboard },
-        ],
-    },
-    {
-        path: "/guest-instructor",
-        Component: Layout,
-        children: [
-            { index: true, Component: GuestDashboard },
-        ],
-    },
-    {
-        path: "/guest-registrar",
-        Component: Layout,
-        children: [
-            { index: true, Component: GuestDashboard },
-        ],
-    },
-    {
+  {
+    path: "/student",
+    Component: Layout,
+    children: [
+        { index: true, Component: StudentDashboard },
+        { path: "register", Component: CourseRegistration },
+        { path: "schedule", Component: MySchedule },
+        { path: "waitlist", Component: Waitlist },
+        { path: "grades", Component: StudentGrades },
+        { path: "reviews", Component: StudentReviews },
+        { path: "complaints", Component: StudentComplaints },
+        { path: "graduation", Component: StudentGraduation },
+        { path: "ai-advisor", Component: AIAdvisor },
+        { path: "profile", Component: Profile },
+    ],
+},
+
+{
+    path: "/instructor",
+    Component: Layout,
+    children: [
+        { index: true, Component: InstructorDashboard },
+        { path: "ai-advisor", Component: AIAdvisor },
+        { path: "profile", Component: Profile },
+    ],
+},
+
+{
+    path: "/registrar",
+    Component: Layout,
+    children: [
+        { index: true, Component: RegistrarDashboard },
+        { path: "ai-advisor", Component: AIAdvisor },
+        { path: "profile", Component: Profile },
+    ],
+},
+
+{
+    path: "/guest-student",
+    Component: Layout,
+    children: [
+        { index: true, Component: GuestDashboard },
+        { path: "ai-advisor", Component: AIAdvisor },
+    ],
+},
+
+{
+    path: "/guest-instructor",
+    Component: Layout,
+    children: [
+        { index: true, Component: GuestDashboard },
+        { path: "ai-advisor", Component: AIAdvisor },
+    ],
+},
+
+{
+    path: "/guest-registrar",
+    Component: Layout,
+    children: [
+        { index: true, Component: GuestDashboard },
+        { path: "ai-advisor", Component: AIAdvisor },
+    ],
+},
+
+       {
+
         path: "*",
+
         Component: NotFound,
+
     },
+
 ]);
