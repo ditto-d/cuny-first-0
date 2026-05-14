@@ -8,17 +8,10 @@ export interface AIMessage {
 }
 
 export const callAIAPI = async (
-  message: string
+  message: string,
+  role: string,
+  userId: string | null
 ): Promise<{ response: string }> => {
-  const role = localStorage.getItem("userRole") || "student";
-
-  const userId =
-    role === "registrar"
-      ? Number(localStorage.getItem("registrarId") || 1)
-      : role === "instructor"
-      ? Number(localStorage.getItem("instructorId") || 1)
-      : Number(localStorage.getItem("studentId") || 1);
-
   const response = await fetch(apiUrl("/ai/ask"), {
     method: "POST",
     headers: {
@@ -27,7 +20,7 @@ export const callAIAPI = async (
     body: JSON.stringify({
       role,
       question: message,
-      user_id: userId,
+      user_id: userId ? Number(userId) : null,
     }),
   });
 
@@ -40,7 +33,7 @@ export const callAIAPI = async (
   const answer =
     data.result?.answer ||
     data.response ||
-    "No confident answer found in the College0 knowledge base. Please rephrase your question.";
+    "No answer returned from backend.";
 
   const warning = data.result?.warning || data.warning;
 

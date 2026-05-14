@@ -79,7 +79,7 @@ const idLabel =
     setIsTyping(true);
 
     try {
-      const aiResult = await callAIAPI(text);
+     const aiResult = await callAIAPI(text, role, userId);
 
       const aiResponse: AIMessageType = {
         id: Date.now() + 1,
