@@ -1,16 +1,22 @@
 import { useState } from "react";
-import { BookOpen, Users, FileText, Megaphone } from "lucide-react";
+import { BookOpen, Users, FileText } from "lucide-react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { apiUrl } from "../utils/api";
 
 type TabType = "courses" | "rosters" | "grades" | "announcements";
 
 export function InstructorDashboard() {
-  const [activeTab, setActiveTab] = useState<TabType>("courses");
+  const [searchParams] = useSearchParams();
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [isSubmittingGrades, setIsSubmittingGrades] = useState(false);
 
   const instructorId = Number(localStorage.getItem("instructorId") || 1);
+  const requestedTab = searchParams.get("tab");
+  const activeTab: TabType =
+    requestedTab === "rosters" || requestedTab === "grades" || requestedTab === "announcements"
+      ? requestedTab
+      : "courses";
 
   const courses = [
     { id: "1", code: "CS 101", name: "Introduction to Computer Science", section: "001", sectionId: 1, enrolled: 28, capacity: 30, schedule: "MWF 9:00-10:00 AM" },
@@ -32,13 +38,6 @@ export function InstructorDashboard() {
     { id: "1", title: "Midterm Exam Schedule", date: "2026-04-20", course: "CS 101", content: "Midterm exam will be held on May 15th" },
     { id: "2", title: "Office Hours Change", date: "2026-04-18", course: "CS 201", content: "Office hours moved to Thursday 3-5 PM" },
     { id: "3", title: "Assignment 3 Posted", date: "2026-04-15", course: "CS 301", content: "New assignment available on the portal" },
-  ];
-
-  const tabs = [
-    { id: "courses" as TabType, label: "My Courses", icon: BookOpen },
-    { id: "rosters" as TabType, label: "Student Rosters", icon: Users },
-    { id: "grades" as TabType, label: "Grade Submission", icon: FileText },
-    { id: "announcements" as TabType, label: "Announcements", icon: Megaphone },
   ];
 
   const selectedSectionId = courses.find((c) => c.id === selectedCourse)?.sectionId;
@@ -144,28 +143,6 @@ export function InstructorDashboard() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? "border-blue-600 text-blue-600"
-                        : "border-transparent text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div className="p-6">
             {activeTab === "courses" && (
               <div>
