@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { BookOpen, Calendar, Clock, User, TrendingUp, Award, Bell, Bot } from "lucide-react";
+import { BookOpen, Calendar, Clock, User, TrendingUp, Award, Bell, Bot, FileText, MessageSquare, GraduationCap } from "lucide-react";
 import { apiUrl } from "../utils/api";
 
 interface Enrollment {
@@ -24,14 +24,28 @@ export function StudentDashboard() {
   const studentId = localStorage.getItem("studentId") || "1";
 
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [gpa, setGpa] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadStudentData = async () => {
       try {
-        const response = await fetch(apiUrl(`/registration/student/${studentId}`));
-        const data = await response.json();
-        setEnrollments(data || []);
+        const [enrollRes, gpaRes] = await Promise.all([
+          fetch(apiUrl(`/registration/student/${studentId}`)),
+          fetch(apiUrl(`/gpa/${studentId}`)),
+        ]);
+
+        if (enrollRes.ok) {
+          const data = await enrollRes.json();
+          setEnrollments(data || []);
+        }
+
+        if (gpaRes.ok) {
+          const gpaData = await gpaRes.json();
+          if (gpaData.success) {
+            setGpa(gpaData.gpa);
+          }
+        }
       } catch (error) {
         console.error("Failed to load student dashboard data:", error);
       } finally {
@@ -76,17 +90,45 @@ export function StudentDashboard() {
       path: "/student/waitlist",
     },
     {
+      icon: FileText,
+      title: "My Grades",
+      description: "View your grades and GPA",
+      color: "from-teal-500 to-teal-600",
+      path: "/student/grades",
+    },
+    {
       icon: Bot,
       title: "AI Advisor",
-      description: "Get academic guidance from the backend AI assistant",
+      description: "Get academic guidance from the AI assistant",
       color: "from-purple-500 to-pink-500",
       path: "/student/ai-advisor",
+    },
+    {
+      icon: MessageSquare,
+      title: "Reviews",
+      description: "Rate and review your courses",
+      color: "from-yellow-500 to-yellow-600",
+      path: "/student/reviews",
+    },
+    {
+      icon: Bell,
+      title: "Complaints",
+      description: "File a formal complaint",
+      color: "from-red-500 to-red-600",
+      path: "/student/complaints",
+    },
+    {
+      icon: GraduationCap,
+      title: "Graduation",
+      description: "Apply for graduation",
+      color: "from-indigo-500 to-indigo-600",
+      path: "/student/graduation",
     },
     {
       icon: User,
       title: "Profile",
       description: "View your account information",
-      color: "from-indigo-500 to-purple-600",
+      color: "from-gray-500 to-gray-600",
       path: "/student/profile",
     },
   ];
@@ -94,6 +136,14 @@ export function StudentDashboard() {
   if (loading) {
     return <div className="p-8 text-gray-600">Loading student dashboard...</div>;
   }
+
+  const getGpaColor = () => {
+    if (gpa === null) return "text-gray-400";
+    if (gpa >= 3.5) return "text-green-400";
+    if (gpa >= 2.25) return "text-blue-400";
+    if (gpa >= 2.0) return "text-yellow-400";
+    return "text-red-400";
+  };
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
@@ -103,7 +153,7 @@ export function StudentDashboard() {
           <p className="text-gray-600 text-lg">Student ID: {studentId}</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {cards.map((card) => {
             const Icon = card.icon;
             return (
@@ -129,8 +179,12 @@ export function StudentDashboard() {
               <span className="text-sm opacity-80">Academic</span>
             </div>
             <p className="text-sm opacity-90 mb-1">GPA</p>
-            <p className="text-4xl font-bold">N/A</p>
-            <p className="text-xs opacity-80 mt-2">Calculated by grading module</p>
+            <p className={`text-4xl font-bold ${getGpaColor()}`}>
+              {gpa !== null ? gpa.toFixed(2) : "N/A"}
+            </p>
+            <p className="text-xs opacity-80 mt-2">
+              {gpa !== null ? "Cumulative GPA" : "No grades posted yet"}
+            </p>
           </div>
 
           <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl shadow-md p-6 text-white">
@@ -171,7 +225,6 @@ export function StudentDashboard() {
                         {enrollment.section?.course?.course_code || "SEC"}
                       </span>
                     </div>
-
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">
                         {enrollment.section?.course?.course_code || "Unknown Course"}
@@ -202,7 +255,34 @@ export function StudentDashboard() {
                 <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
                   <p className="text-gray-900 font-medium">Low Course Load</p>
                   <p className="text-sm text-gray-600">
-                    You currently have fewer than 2 enrolled courses. The backend can issue a warning during the class-running period.
+                    You currently have fewer than 2 enrolled courses.
+                  </p>
+                </div>
+              )}
+
+              {gpa !== null && gpa < 2.0 && (
+                <div className="p-4 bg-red-50 rounded-lg border border-red-100">
+                  <p className="text-gray-900 font-medium">GPA Alert</p>
+                  <p className="text-sm text-gray-600">
+                    Your GPA is below 2.0. Please contact the registrar immediately.
+                  </p>
+                </div>
+              )}
+
+              {gpa !== null && gpa >= 2.0 && gpa <= 2.25 && (
+                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-100">
+                  <p className="text-gray-900 font-medium">Registrar Interview Required</p>
+                  <p className="text-sm text-gray-600">
+                    Your GPA is between 2.0 and 2.25. A registrar interview is required.
+                  </p>
+                </div>
+              )}
+
+              {gpa !== null && gpa > 3.75 && (
+                <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+                  <p className="text-gray-900 font-medium">Honor Roll</p>
+                  <p className="text-sm text-gray-600">
+                    Congratulations! Your GPA qualifies you for the honor roll.
                   </p>
                 </div>
               )}
@@ -211,16 +291,16 @@ export function StudentDashboard() {
                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                   <p className="text-gray-900 font-medium">Waitlist Active</p>
                   <p className="text-sm text-gray-600">
-                    You are waitlisted for {waitlistedCourses.length} section(s). Only the instructor can admit students from the waitlist.
+                    You are waitlisted for {waitlistedCourses.length} section(s).
                   </p>
                 </div>
               )}
 
-              {enrolledCount >= 2 && waitlistedCourses.length === 0 && (
+              {enrolledCount >= 2 && waitlistedCourses.length === 0 && (gpa === null || gpa > 2.25) && (
                 <div className="p-4 bg-green-50 rounded-lg border border-green-100">
                   <p className="text-gray-900 font-medium">Registration Looks Good</p>
                   <p className="text-sm text-gray-600">
-                    Your current enrolled course count satisfies the minimum course-load requirement.
+                    Your current enrolled course count satisfies the minimum requirement.
                   </p>
                 </div>
               )}

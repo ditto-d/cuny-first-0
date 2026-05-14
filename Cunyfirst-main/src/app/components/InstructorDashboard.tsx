@@ -1,25 +1,32 @@
 import { useState } from "react";
-import { BookOpen, Users, FileText, Megaphone, Search } from "lucide-react";
+import { BookOpen, Users, FileText, Megaphone } from "lucide-react";
+import { toast } from "sonner";
+import { apiUrl } from "../utils/api";
 
 type TabType = "courses" | "rosters" | "grades" | "announcements";
 
 export function InstructorDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>("courses");
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [isSubmittingGrades, setIsSubmittingGrades] = useState(false);
+
+  const instructorId = Number(localStorage.getItem("instructorId") || 1);
 
   const courses = [
-    { id: "1", code: "CS 101", name: "Introduction to Computer Science", section: "001", enrolled: 28, capacity: 30, schedule: "MWF 9:00-10:00 AM" },
-    { id: "2", code: "CS 201", name: "Data Structures and Algorithms", section: "002", enrolled: 25, capacity: 30, schedule: "TTh 2:00-3:30 PM" },
-    { id: "3", code: "CS 301", name: "Database Systems", section: "001", enrolled: 22, capacity: 25, schedule: "MWF 11:00-12:00 PM" },
+    { id: "1", code: "CS 101", name: "Introduction to Computer Science", section: "001", sectionId: 1, enrolled: 28, capacity: 30, schedule: "MWF 9:00-10:00 AM" },
+    { id: "2", code: "CS 201", name: "Data Structures and Algorithms", section: "002", sectionId: 2, enrolled: 25, capacity: 30, schedule: "TTh 2:00-3:30 PM" },
+    { id: "3", code: "CS 301", name: "Database Systems", section: "001", sectionId: 3, enrolled: 22, capacity: 25, schedule: "MWF 11:00-12:00 PM" },
   ];
 
   const students = [
-    { id: "1", name: "John Smith", studentId: "STU001", email: "john@university.edu", grade: "A" },
-    { id: "2", name: "Sarah Johnson", studentId: "STU002", email: "sarah@university.edu", grade: "B+" },
-    { id: "3", name: "Mike Davis", studentId: "STU003", email: "mike@university.edu", grade: "A-" },
-    { id: "4", name: "Emma Wilson", studentId: "STU004", email: "emma@university.edu", grade: "B" },
-    { id: "5", name: "David Lee", studentId: "STU005", email: "david@university.edu", grade: "A" },
+    { id: 1, name: "John Smith", studentId: "STU001", email: "john@university.edu" },
+    { id: 2, name: "Sarah Johnson", studentId: "STU002", email: "sarah@university.edu" },
+    { id: 3, name: "Mike Davis", studentId: "STU003", email: "mike@university.edu" },
+    { id: 4, name: "Emma Wilson", studentId: "STU004", email: "emma@university.edu" },
+    { id: 5, name: "David Lee", studentId: "STU005", email: "david@university.edu" },
   ];
+
+  const [gradeSelections, setGradeSelections] = useState<Record<number, string>>({});
 
   const announcements = [
     { id: "1", title: "Midterm Exam Schedule", date: "2026-04-20", course: "CS 101", content: "Midterm exam will be held on May 15th" },
@@ -34,6 +41,60 @@ export function InstructorDashboard() {
     { id: "announcements" as TabType, label: "Announcements", icon: Megaphone },
   ];
 
+  const selectedSectionId = courses.find((c) => c.id === selectedCourse)?.sectionId;
+
+  const handleGradeChange = (studentId: number, grade: string) => {
+    setGradeSelections((prev) => ({ ...prev, [studentId]: grade }));
+  };
+
+  const handleSubmitAllGrades = async () => {
+    if (!selectedSectionId) return;
+
+    const toSubmit = students.filter((s) => gradeSelections[s.id]);
+    if (toSubmit.length === 0) {
+      toast.error("No grades selected. Please select at least one grade to submit.");
+      return;
+    }
+
+    setIsSubmittingGrades(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const student of toSubmit) {
+      try {
+        const response = await fetch(apiUrl("/grades/submit"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instructor_id: instructorId,
+            section_id: selectedSectionId,
+            student_id: student.id,
+            letter_grade: gradeSelections[student.id],
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          successCount++;
+        } else {
+          failCount++;
+          console.error(`Failed for student ${student.name}: ${data.message}`);
+        }
+      } catch {
+        failCount++;
+      }
+    }
+
+    setIsSubmittingGrades(false);
+
+    if (successCount > 0) {
+      toast.success(`${successCount} grade(s) submitted successfully.`);
+    }
+    if (failCount > 0) {
+      toast.error(`${failCount} grade(s) failed to submit.`);
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
@@ -42,7 +103,6 @@ export function InstructorDashboard() {
           <p className="text-gray-600">Manage your courses and students</p>
         </div>
 
-        {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center justify-between">
@@ -72,7 +132,9 @@ export function InstructorDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm mb-1">Pending Grades</p>
-                <p className="text-3xl text-orange-600">12</p>
+                <p className="text-3xl text-orange-600">
+                  {students.filter((s) => !gradeSelections[s.id]).length}
+                </p>
               </div>
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
                 <FileText className="w-6 h-6 text-orange-600" />
@@ -81,7 +143,6 @@ export function InstructorDashboard() {
           </div>
         </div>
 
-        {/* Tabs Content */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="border-b border-gray-200">
             <div className="flex overflow-x-auto">
@@ -208,7 +269,10 @@ export function InstructorDashboard() {
                   <label className="block text-sm text-gray-700 mb-2">Select Course</label>
                   <select
                     value={selectedCourse || ""}
-                    onChange={(e) => setSelectedCourse(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedCourse(e.target.value);
+                      setGradeSelections({});
+                    }}
                     className="w-full md:w-96 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Choose a course...</option>
@@ -224,8 +288,16 @@ export function InstructorDashboard() {
                   <div>
                     <div className="flex justify-between items-center mb-6">
                       <h2 className="text-gray-900">Grade Submission</h2>
-                      <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                        Submit All Grades
+                      <button
+                        onClick={handleSubmitAllGrades}
+                        disabled={isSubmittingGrades}
+                        className={`px-4 py-2 rounded-lg text-white transition-colors font-medium ${
+                          isSubmittingGrades
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-green-600 hover:bg-green-700"
+                        }`}
+                      >
+                        {isSubmittingGrades ? "Submitting..." : "Submit All Grades"}
                       </button>
                     </div>
                     <div className="overflow-x-auto">
@@ -234,7 +306,6 @@ export function InstructorDashboard() {
                           <tr>
                             <th className="px-6 py-3 text-left text-sm text-gray-700">Student ID</th>
                             <th className="px-6 py-3 text-left text-sm text-gray-700">Name</th>
-                            <th className="px-6 py-3 text-left text-sm text-gray-700">Current Grade</th>
                             <th className="px-6 py-3 text-left text-sm text-gray-700">Final Grade</th>
                           </tr>
                         </thead>
@@ -244,12 +315,11 @@ export function InstructorDashboard() {
                               <td className="px-6 py-4 text-gray-900">{student.studentId}</td>
                               <td className="px-6 py-4 text-gray-900">{student.name}</td>
                               <td className="px-6 py-4">
-                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-                                  {student.grade}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <select className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <select
+                                  value={gradeSelections[student.id] || ""}
+                                  onChange={(e) => handleGradeChange(student.id, e.target.value)}
+                                  className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
                                   <option value="">Select Grade</option>
                                   <option value="A">A</option>
                                   <option value="A-">A-</option>
@@ -259,8 +329,11 @@ export function InstructorDashboard() {
                                   <option value="C+">C+</option>
                                   <option value="C">C</option>
                                   <option value="C-">C-</option>
+                                  <option value="D+">D+</option>
                                   <option value="D">D</option>
                                   <option value="F">F</option>
+                                  <option value="W">W</option>
+                                  <option value="I">I</option>
                                 </select>
                               </td>
                             </tr>
