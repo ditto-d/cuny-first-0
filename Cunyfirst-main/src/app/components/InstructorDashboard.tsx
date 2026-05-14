@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { BookOpen, Bot, FileText, Megaphone, Users } from "lucide-react";
+import { BookOpen, Bot, FileText, Users } from "lucide-react";
 import { toast } from "sonner";
 import { apiUrl } from "../utils/api";
 
@@ -10,7 +10,11 @@ export function InstructorDashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [gradeSelections, setGradeSelections] = useState<Record<number, string>>({});
+  const [isLoadingCourses, setIsLoadingCourses] = useState(true);
+  const [isLoadingRoster, setIsLoadingRoster] = useState(false);
   const [isSubmittingGrades, setIsSubmittingGrades] = useState(false);
 
   const requestedTab = searchParams.get("tab");
@@ -21,20 +25,6 @@ export function InstructorDashboard() {
 
   const instructorId = Number(localStorage.getItem("instructorId") || 1);
 
-  const courses = [
-    { id: "1", code: "CS 101", name: "Introduction to Computer Science", section: "001", sectionId: 1, enrolled: 28, capacity: 30, schedule: "MWF 9:00-10:00 AM" },
-    { id: "2", code: "CS 201", name: "Data Structures and Algorithms", section: "002", sectionId: 2, enrolled: 25, capacity: 30, schedule: "TTh 2:00-3:30 PM" },
-    { id: "3", code: "CS 301", name: "Database Systems", section: "001", sectionId: 3, enrolled: 22, capacity: 25, schedule: "MWF 11:00-12:00 PM" },
-  ];
-
-  const students = [
-    { id: 1, name: "John Smith", studentId: "STU001", email: "john@university.edu" },
-    { id: 2, name: "Sarah Johnson", studentId: "STU002", email: "sarah@university.edu" },
-    { id: 3, name: "Mike Davis", studentId: "STU003", email: "mike@university.edu" },
-    { id: 4, name: "Emma Wilson", studentId: "STU004", email: "emma@university.edu" },
-    { id: 5, name: "David Lee", studentId: "STU005", email: "david@university.edu" },
-  ];
-
   const announcements = [
     { id: "1", title: "Midterm Exam Schedule", date: "2026-04-20", course: "CS 101", content: "Midterm exam will be held on May 15th" },
     { id: "2", title: "Office Hours Change", date: "2026-04-18", course: "CS 201", content: "Office hours moved to Thursday 3-5 PM" },
@@ -42,6 +32,97 @@ export function InstructorDashboard() {
   ];
 
   const selectedSectionId = courses.find((course) => course.id === selectedCourse)?.sectionId;
+
+  const loadCourses = async () => {
+    setIsLoadingCourses(true);
+    try {
+      const response = await fetch(apiUrl(`/instructors/${instructorId}/sections`));
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Could not load instructor sections.");
+      }
+
+      const mappedCourses = (data.sections ?? []).map((section: any) => {
+        const course = section.course ?? {};
+        const sectionId = Number(section.section_id);
+
+        return {
+          id: String(sectionId),
+          code: course.course_code || `SECTION ${sectionId}`,
+          name: course.course_name || "Unknown Course",
+          section: section.section_number || String(sectionId),
+          sectionId,
+          enrolled: Number(section.enrolled_count ?? 0),
+          waitlisted: Number(section.waitlisted_count ?? 0),
+          capacity: Number(section.seats ?? 0),
+          credits: Number(course.credits ?? 0),
+          schedule: section.schedule || "Schedule TBA",
+          room: section.room || "Room TBA",
+          semester: [section.semester, section.year].filter(Boolean).join(" ") || "Current Term",
+        };
+      });
+
+      setCourses(mappedCourses);
+      setSelectedCourse((current) => current ?? mappedCourses[0]?.id ?? null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not load instructor sections.";
+      toast.error(message);
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  };
+
+  const loadRoster = async (sectionId: number) => {
+    setIsLoadingRoster(true);
+    try {
+      const response = await fetch(apiUrl(`/sections/${sectionId}/roster`));
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Could not load roster.");
+      }
+
+      const mappedStudents = (data.enrollments ?? [])
+        .filter((enrollment: any) => (enrollment.status ?? "enrolled") === "enrolled")
+        .map((enrollment: any) => {
+          const account = enrollment.student?.account ?? {};
+          const grade = Array.isArray(enrollment.grade) ? enrollment.grade[0] : enrollment.grade;
+          const studentId = Number(enrollment.student_id);
+          const displayName = [account.first_name, account.last_name].filter(Boolean).join(" ");
+
+          return {
+            id: studentId,
+            name: displayName || `Student ${studentId}`,
+            studentId: `STU${String(studentId).padStart(3, "0")}`,
+            email: account.email || "Email unavailable",
+            currentGrade: grade?.letter_grade || "",
+          };
+        });
+
+      setStudents(mappedStudents);
+      setGradeSelections(
+        mappedStudents.reduce<Record<number, string>>((current, student) => {
+          if (student.currentGrade) current[student.id] = student.currentGrade;
+          return current;
+        }, {})
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not load roster.";
+      toast.error(message);
+      setStudents([]);
+    } finally {
+      setIsLoadingRoster(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCourses();
+  }, [instructorId]);
+
+  useEffect(() => {
+    if ((activeTab === "rosters" || activeTab === "grades") && selectedSectionId) {
+      loadRoster(selectedSectionId);
+    }
+  }, [activeTab, selectedSectionId]);
 
   const handleGradeChange = (studentId: number, grade: string) => {
     setGradeSelections((current) => ({ ...current, [studentId]: grade }));
@@ -93,6 +174,10 @@ export function InstructorDashboard() {
     if (failCount > 0) {
       toast.error(`${failCount} grade(s) failed to submit.`);
     }
+
+    if (selectedSectionId) {
+      await loadRoster(selectedSectionId);
+    }
   };
 
   return (
@@ -122,7 +207,7 @@ export function InstructorDashboard() {
           />
           <SummaryCard
             label="Total Students"
-            value={75}
+            value={courses.reduce((total, course) => total + course.enrolled, 0)}
             icon={Users}
             colorClass="text-green-600"
             iconClass="bg-green-100 text-green-600"
@@ -143,39 +228,57 @@ export function InstructorDashboard() {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-gray-900">My Courses - Spring 2026</h2>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {courses.map((course) => (
-                    <div key={course.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                      <div className="mb-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-                            {course.code}
-                          </span>
-                          <span className="text-sm text-gray-600">Section {course.section}</span>
+                {isLoadingCourses ? (
+                  <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">
+                    Loading your sections...
+                  </div>
+                ) : courses.length === 0 ? (
+                  <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">
+                    No assigned sections were found for this instructor account.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {courses.map((course) => (
+                      <div key={course.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                              {course.code}
+                            </span>
+                            <span className="text-sm text-gray-600">Section {course.section}</span>
+                          </div>
+                          <h3 className="text-gray-900 mb-2">{course.name}</h3>
+                          <p className="text-sm text-gray-600">{course.schedule}</p>
+                          <p className="text-xs text-gray-500 mt-1">{course.room} - {course.semester}</p>
                         </div>
-                        <h3 className="text-gray-900 mb-2">{course.name}</h3>
-                        <p className="text-sm text-gray-600">{course.schedule}</p>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Enrolled</span>
+                            <span className="text-gray-900">
+                              {course.enrolled}/{course.capacity}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full"
+                              style={{ width: `${course.capacity ? (course.enrolled / course.capacity) * 100 : 0}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">{course.waitlisted} waitlisted</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedCourse(course.id);
+                            navigate("/instructor?tab=rosters");
+                          }}
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          View Course
+                        </button>
                       </div>
-                      <div className="space-y-2 mb-4">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Enrolled</span>
-                          <span className="text-gray-900">
-                            {course.enrolled}/{course.capacity}
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${(course.enrolled / course.capacity) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                      <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        View Course
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -195,7 +298,13 @@ export function InstructorDashboard() {
                         Export to CSV
                       </button>
                     </div>
-                    <StudentTable students={students} mode="roster" />
+                    {isLoadingRoster ? (
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">
+                        Loading roster...
+                      </div>
+                    ) : (
+                      <StudentTable students={students} mode="roster" />
+                    )}
                   </div>
                 )}
               </div>
@@ -228,12 +337,18 @@ export function InstructorDashboard() {
                         {isSubmittingGrades ? "Submitting..." : "Submit All Grades"}
                       </button>
                     </div>
-                    <StudentTable
-                      students={students}
-                      mode="grades"
-                      gradeSelections={gradeSelections}
-                      onGradeChange={handleGradeChange}
-                    />
+                    {isLoadingRoster ? (
+                      <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-600">
+                        Loading roster...
+                      </div>
+                    ) : (
+                      <StudentTable
+                        students={students}
+                        mode="grades"
+                        gradeSelections={gradeSelections}
+                        onGradeChange={handleGradeChange}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -309,6 +424,15 @@ type Course = {
   id: string;
   code: string;
   name: string;
+  section: string;
+  sectionId: number;
+  enrolled: number;
+  waitlisted: number;
+  capacity: number;
+  credits: number;
+  schedule: string;
+  room: string;
+  semester: string;
 };
 
 function CourseSelect({
@@ -344,6 +468,7 @@ type Student = {
   name: string;
   studentId: string;
   email: string;
+  currentGrade?: string;
 };
 
 function StudentTable({

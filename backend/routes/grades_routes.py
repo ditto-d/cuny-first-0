@@ -20,7 +20,7 @@ def get_supabase():
     #Create a Supabase client using environment variables.
     return create_client(
         os.environ["SUPABASE_URL"],
-        os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.environ["SUPABASE_KEY"],
     )
  
 # Grades
@@ -128,6 +128,26 @@ def route_resolve_complaint(complaint_id):
     )
     return jsonify(result), (200 if result["success"] else 400)
 
+
+@grades_bp.route("/complaints/pending", methods=["GET"])
+def route_get_pending_complaints():
+    try:
+        response = (
+            get_supabase()
+            .table("complaint")
+            .select("*")
+            .eq("status", "Pending")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return jsonify({"success": True, "complaints": response.data or []}), 200
+    except Exception as error:
+        return jsonify({
+            "success": False,
+            "message": f"Could not load pending complaints: {error}",
+            "complaints": [],
+        }), 500
+
 # Class GPA Check
 
 @grades_bp.route("/sections/<int:section_id>/class-gpa", methods=["POST"])
@@ -162,3 +182,23 @@ def route_review_graduation(application_id):
         justification=data.get("justification", ""),
     )
     return jsonify(result), (200 if result["success"] else 400)
+
+
+@grades_bp.route("/graduation/pending", methods=["GET"])
+def route_get_pending_graduation_applications():
+    try:
+        response = (
+            get_supabase()
+            .table("graduation_application")
+            .select("*")
+            .eq("status", "Pending")
+            .order("applied_at", desc=True)
+            .execute()
+        )
+        return jsonify({"success": True, "applications": response.data or []}), 200
+    except Exception as error:
+        return jsonify({
+            "success": False,
+            "message": f"Could not load graduation applications: {error}",
+            "applications": [],
+        }), 500

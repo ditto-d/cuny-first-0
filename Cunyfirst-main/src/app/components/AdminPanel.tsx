@@ -49,6 +49,24 @@ type GraduationApplication = {
   applied_at: string;
 };
 
+type ManagedCourse = {
+  id: string;
+  code: string;
+  name: string;
+  sections: number;
+  enrolled: number;
+  capacity: number;
+};
+
+type ManagedStudent = {
+  id: string;
+  name: string;
+  studentId: string;
+  email: string;
+  credits: number;
+  status: string;
+};
+
 export function RegistrarDashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -58,6 +76,10 @@ export function RegistrarDashboard() {
   const [reviewInputs, setReviewInputs] = useState<Record<number, ReviewInput>>({});
   const [processingApplicationId, setProcessingApplicationId] = useState<number | null>(null);
   const [approvalResults, setApprovalResults] = useState<Record<number, ApprovalResult>>({});
+  const [courses, setCourses] = useState<ManagedCourse[]>([]);
+  const [students, setStudents] = useState<ManagedStudent[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
 
   // Complaints state
   const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -70,26 +92,15 @@ export function RegistrarDashboard() {
   const [isLoadingGraduation, setIsLoadingGraduation] = useState(false);
   const [graduationJustifications, setGraduationJustifications] = useState<Record<number, string>>({});
   const [processingGraduationId, setProcessingGraduationId] = useState<number | null>(null);
+  const [currentPeriod, setCurrentPeriod] = useState("registration");
+  const [isSavingPeriod, setIsSavingPeriod] = useState(false);
+  const [runningMaintenance, setRunningMaintenance] = useState<string | null>(null);
 
   const requestedTab = searchParams.get("tab");
   const activeTab: TabType =
     requestedTab === "students" || requestedTab === "approvals" || requestedTab === "settings"
       ? requestedTab
       : "courses";
-
-  const courses = [
-    { id: "1", code: "CS 101", name: "Intro to CS", sections: 3, enrolled: 85, capacity: 90 },
-    { id: "2", code: "CS 201", name: "Data Structures", sections: 2, enrolled: 58, capacity: 60 },
-    { id: "3", code: "CS 301", name: "Database Systems", sections: 2, enrolled: 45, capacity: 50 },
-    { id: "4", code: "CS 401", name: "Machine Learning", sections: 1, enrolled: 30, capacity: 30 },
-  ];
-
-  const students = [
-    { id: "1", name: "John Smith", studentId: "STU001", email: "john@university.edu", credits: 15, status: "Active" },
-    { id: "2", name: "Sarah Johnson", studentId: "STU002", email: "sarah@university.edu", credits: 12, status: "Active" },
-    { id: "3", name: "Mike Davis", studentId: "STU003", email: "mike@university.edu", credits: 18, status: "Active" },
-    { id: "4", name: "Emma Wilson", studentId: "STU004", email: "emma@university.edu", credits: 9, status: "Hold" },
-  ];
 
   const approvals = [
     { id: "1", student: "John Smith", course: "CS 501", type: "Override", status: "Pending" },
@@ -102,7 +113,7 @@ export function RegistrarDashboard() {
     setApplicationError("");
 
     try {
-      const response = await fetch(apiUrl("/applications"));
+      const response = await fetch(apiUrl("/applications?status=Pending"));
       if (!response.ok) {
         throw new Error(await readApiError(response, "Could not load applications."));
       }
@@ -115,6 +126,79 @@ export function RegistrarDashboard() {
       toast.error(message);
     } finally {
       setIsLoadingApplications(false);
+    }
+  };
+
+  const fetchManagedCourses = async () => {
+    setIsLoadingCourses(true);
+    try {
+      const [coursesResponse, sectionsResponse, enrollmentsResponse] = await Promise.all([
+        fetch(apiUrl("/courses")),
+        fetch(apiUrl("/sections")),
+        fetch(apiUrl("/registration/enrollments")),
+      ]);
+
+      const coursesData = coursesResponse.ok ? await coursesResponse.json() : [];
+      const sectionsData = sectionsResponse.ok ? await sectionsResponse.json() : [];
+      const enrollmentsData = enrollmentsResponse.ok ? await enrollmentsResponse.json() : [];
+
+      setCourses((coursesData ?? []).map((course: any) => {
+        const courseSections = (sectionsData ?? []).filter((section: any) => section.course_id === course.course_id);
+        const courseEnrollments = (enrollmentsData ?? []).filter((enrollment: any) =>
+          (enrollment.status ?? "enrolled") === "enrolled" &&
+          enrollment.section?.course_id === course.course_id
+        );
+
+        return {
+          id: String(course.course_id),
+          code: course.course_code,
+          name: course.course_name,
+          sections: courseSections.length,
+          enrolled: courseEnrollments.length,
+          capacity: courseSections.reduce((total: number, section: any) => total + Number(section.seats ?? 0), 0),
+        };
+      }));
+    } catch {
+      toast.error("Could not load course management data.");
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  };
+
+  const fetchManagedStudents = async () => {
+    setIsLoadingStudents(true);
+    try {
+      const [studentsResponse, enrollmentsResponse] = await Promise.all([
+        fetch(apiUrl("/students")),
+        fetch(apiUrl("/registration/enrollments")),
+      ]);
+
+      const studentsData = studentsResponse.ok ? await studentsResponse.json() : { students: [] };
+      const enrollmentsData = enrollmentsResponse.ok ? await enrollmentsResponse.json() : [];
+
+      setStudents((studentsData.students ?? []).map((student: any) => {
+        const account = student.account ?? student;
+        const studentId = student.student_id ?? account.user_id;
+        const studentEnrollments = (enrollmentsData ?? []).filter((enrollment: any) =>
+          enrollment.student_id === studentId && (enrollment.status ?? "enrolled") === "enrolled"
+        );
+        const credits = studentEnrollments.reduce((total: number, enrollment: any) =>
+          total + Number(enrollment.section?.course?.credits ?? 0), 0);
+        const name = [account.first_name, account.last_name].filter(Boolean).join(" ");
+
+        return {
+          id: String(studentId),
+          studentId: `STU${String(studentId).padStart(3, "0")}`,
+          name: name || account.email || `Student ${studentId}`,
+          email: account.email || "Email unavailable",
+          credits,
+          status: student.is_active === false ? "Inactive" : (student.academic_standing || "Active"),
+        };
+      }));
+    } catch {
+      toast.error("Could not load student management data.");
+    } finally {
+      setIsLoadingStudents(false);
     }
   };
 
@@ -153,6 +237,10 @@ export function RegistrarDashboard() {
       fetchApplications();
       fetchComplaints();
       fetchGraduationApps();
+    } else if (activeTab === "courses") {
+      fetchManagedCourses();
+    } else if (activeTab === "students") {
+      fetchManagedStudents();
     }
   }, [activeTab]);
 
@@ -214,6 +302,9 @@ export function RegistrarDashboard() {
           temporaryPassword: data.temporary_password,
         },
       }));
+      setApplications((current) =>
+        current.filter((item) => item.admission_id !== application.admission_id)
+      );
       toast.success("Application approved and account created.");
       await fetchApplications();
     } catch (error) {
@@ -247,6 +338,9 @@ export function RegistrarDashboard() {
       }
 
       toast.success("Application rejected.");
+      setApplications((current) =>
+        current.filter((item) => item.admission_id !== application.admission_id)
+      );
       await fetchApplications();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Application rejection failed.");
@@ -317,6 +411,48 @@ export function RegistrarDashboard() {
     }
   };
 
+  const updateRegistrationPeriod = async () => {
+    setIsSavingPeriod(true);
+    try {
+      const response = await fetch(apiUrl("/registration/period"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: currentPeriod }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        toast.error(data.message || "Could not update registration period.");
+        return;
+      }
+
+      toast.success(data.message || "Registration period updated.");
+    } catch {
+      toast.error("Could not connect to backend.");
+    } finally {
+      setIsSavingPeriod(false);
+    }
+  };
+
+  const runMaintenanceAction = async (path: string, label: string) => {
+    setRunningMaintenance(path);
+    try {
+      const response = await fetch(apiUrl(path), { method: "POST" });
+      const data = await response.json();
+
+      if (!response.ok || data.success === false) {
+        toast.error(data.message || `${label} failed.`);
+        return;
+      }
+
+      toast.success(data.message || `${label} completed.`);
+    } catch {
+      toast.error("Could not connect to backend.");
+    } finally {
+      setRunningMaintenance(null);
+    }
+  };
+
   const pendingApplications = applications.filter((application) => application.status === "Pending").length;
 
   return (
@@ -356,6 +492,16 @@ export function RegistrarDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
+                      {isLoadingCourses && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-6 text-center text-gray-600">Loading courses from backend...</td>
+                        </tr>
+                      )}
+                      {!isLoadingCourses && courses.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-6 text-center text-gray-600">No courses found.</td>
+                        </tr>
+                      )}
                       {courses.map((course) => (
                         <tr key={course.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-gray-900">{course.code}</td>
@@ -398,6 +544,16 @@ export function RegistrarDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
+                      {isLoadingStudents && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-6 text-center text-gray-600">Loading students from backend...</td>
+                        </tr>
+                      )}
+                      {!isLoadingStudents && students.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-6 text-center text-gray-600">No students found.</td>
+                        </tr>
+                      )}
                       {students.map((student) => (
                         <tr key={student.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-gray-900">{student.studentId}</td>
@@ -799,51 +955,57 @@ export function RegistrarDashboard() {
                 <div className="space-y-6">
                   <div className="border border-gray-200 rounded-lg p-6">
                     <h3 className="text-gray-900 mb-4">Registration Period</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-2">Start Date</label>
-                        <input
-                          type="date"
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
+                      <label className="block">
+                        <span className="block text-sm text-gray-700 mb-2">Current Period</span>
+                        <select
+                          value={currentPeriod}
+                          onChange={(event) => setCurrentPeriod(event.target.value)}
                           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          defaultValue="2026-04-15"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-2">End Date</label>
-                        <input
-                          type="date"
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          defaultValue="2026-05-01"
-                        />
-                      </div>
+                        >
+                          <option value="class_setup">Class Setup</option>
+                          <option value="registration">Registration</option>
+                          <option value="class_running">Class Running</option>
+                          <option value="grading">Grading</option>
+                          <option value="special_registration">Special Registration</option>
+                        </select>
+                      </label>
+                      <button
+                        onClick={updateRegistrationPeriod}
+                        disabled={isSavingPeriod}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+                      >
+                        {isSavingPeriod ? "Saving..." : "Save Period"}
+                      </button>
                     </div>
                   </div>
 
                   <div className="border border-gray-200 rounded-lg p-6">
-                    <h3 className="text-gray-900 mb-4">Credit Limits</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-2">Minimum Credits</label>
-                        <input
-                          type="number"
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          defaultValue="12"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-2">Maximum Credits</label>
-                        <input
-                          type="number"
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          defaultValue="18"
-                        />
-                      </div>
+                    <h3 className="text-gray-900 mb-4">Registration Maintenance</h3>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() => runMaintenanceAction("/registration/cancel-low-enrollment", "Low-enrollment cancellation")}
+                        disabled={Boolean(runningMaintenance)}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-60"
+                      >
+                        {runningMaintenance === "/registration/cancel-low-enrollment" ? "Running..." : "Cancel Low Enrollment"}
+                      </button>
+                      <button
+                        onClick={() => runMaintenanceAction("/registration/warn-low-load", "Low-load warning")}
+                        disabled={Boolean(runningMaintenance)}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-60"
+                      >
+                        {runningMaintenance === "/registration/warn-low-load" ? "Running..." : "Warn Low Course Load"}
+                      </button>
+                      <button
+                        onClick={() => runMaintenanceAction("/registration/suspend-cancelled-instructors", "Instructor suspension check")}
+                        disabled={Boolean(runningMaintenance)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-60"
+                      >
+                        {runningMaintenance === "/registration/suspend-cancelled-instructors" ? "Running..." : "Suspend Cancelled Instructors"}
+                      </button>
                     </div>
                   </div>
-
-                  <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    Save Settings
-                  </button>
                 </div>
               </div>
             )}

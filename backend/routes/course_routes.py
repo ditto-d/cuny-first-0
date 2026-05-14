@@ -26,6 +26,36 @@ def get_sections():
     return jsonify(response.data)
 
 
+@course_bp.route("/instructors/<int:instructor_id>/sections", methods=["GET"])
+def get_instructor_sections(instructor_id):
+    response = (
+        supabase.table("section")
+        .select("*, course(*)")
+        .eq("instructor_id", instructor_id)
+        .execute()
+    )
+
+    sections = response.data or []
+    for section in sections:
+        enrollments = (
+            supabase.table("enrollment")
+            .select("enrollment_id,status")
+            .eq("section_id", section["section_id"])
+            .execute()
+            .data or []
+        )
+        section["enrolled_count"] = len([
+            enrollment for enrollment in enrollments
+            if enrollment.get("status", "enrolled") == "enrolled"
+        ])
+        section["waitlisted_count"] = len([
+            enrollment for enrollment in enrollments
+            if enrollment.get("status") == "waitlisted"
+        ])
+
+    return jsonify({"success": True, "sections": sections})
+
+
 @course_bp.route("/sections/<int:section_id>", methods=["GET"])
 def get_section(section_id):
 
@@ -43,6 +73,55 @@ def get_section(section_id):
         }), 404
 
     return jsonify(response.data[0])
+
+
+@course_bp.route("/sections/<int:section_id>/roster", methods=["GET"])
+def get_section_roster(section_id):
+    section_response = (
+        supabase.table("section")
+        .select("section_id,instructor_id,course(*)")
+        .eq("section_id", section_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not section_response.data:
+        return jsonify({
+            "success": False,
+            "message": "Section not found."
+        }), 404
+
+    enrollments_response = (
+        supabase.table("enrollment")
+        .select("*, student(*, account(*)), grade(*)")
+        .eq("section_id", section_id)
+        .execute()
+    )
+
+    return jsonify({
+        "success": True,
+        "section": section_response.data[0],
+        "enrollments": enrollments_response.data or [],
+    })
+
+
+@course_bp.route("/students", methods=["GET"])
+def get_students():
+    try:
+        response = (
+            supabase.table("student")
+            .select("*, account(*)")
+            .execute()
+        )
+        return jsonify({"success": True, "students": response.data or []})
+    except Exception:
+        response = (
+            supabase.table("account")
+            .select("*")
+            .eq("account_type", "student")
+            .execute()
+        )
+        return jsonify({"success": True, "students": response.data or []})
 @course_bp.route("/sections", methods=["POST"])
 def create_section():
 
