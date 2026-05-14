@@ -17,10 +17,9 @@ grades_bp = Blueprint("grades", __name__)
  
 # Helper function to create Supabase client
 def get_supabase():
-    #Create a Supabase client using environment variables.
     return create_client(
         os.environ["SUPABASE_URL"],
-        os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+        os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ["SUPABASE_KEY"],
     )
  
 # Grades

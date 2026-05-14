@@ -57,20 +57,39 @@ def submit_grade(supabase, instructor_id: int, section_id: int, student_id: int,
 def get_grades(supabase, student_id: int) -> list:
     res = (
         supabase.table("enrollment")
-        .select("section_id, section(course_id, semester, year), grade(letter_grade)")
+        .select(
+            "section_id, "
+            "section(course_id, semester, year, course(course_code, course_name)), "
+            "grade(letter_grade, date_assigned)"
+        )
         .eq("student_id", student_id)
         .execute()
     )
 
     grade_list = []
+
     for item in (res.data or []):
-        if item.get("grade"):
-            grade_list.append({
-                "section_id":   item["section_id"],
-                "course_id":    item["section"]["course_id"],
-                "letter_grade": item["grade"]["letter_grade"],
-                "semester":     f"{item['section']['semester']} {item['section']['year']}",
-            })
+        grade_data = item.get("grade")
+
+        if isinstance(grade_data, list):
+            grade_data = grade_data[0] if grade_data else None
+
+        if not grade_data:
+            continue
+
+        section = item.get("section") or {}
+        course = section.get("course") or {}
+
+        grade_list.append({
+            "section_id": item.get("section_id"),
+            "course_id": section.get("course_id"),
+            "course_code": course.get("course_code", "N/A"),
+            "course_name": course.get("course_name", "Unknown Course"),
+            "semester": f"{section.get('semester', '')} {section.get('year', '')}".strip(),
+            "letter_grade": grade_data.get("letter_grade"),
+            "date_assigned": grade_data.get("date_assigned"),
+        })
+
     return grade_list
 
 
