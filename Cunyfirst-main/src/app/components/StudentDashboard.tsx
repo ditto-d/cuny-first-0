@@ -1,9 +1,57 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { BookOpen, Calendar, Clock, User, TrendingUp, Award, Bell, Bot } from "lucide-react";
+import { apiUrl } from "../utils/api";
+
+interface Enrollment {
+  status?: string;
+  section?: {
+    section_id?: number;
+    schedule?: string;
+    room?: string;
+    course?: {
+      course_code?: string;
+      course_name?: string;
+      credits?: number;
+    };
+  };
+}
 
 export function StudentDashboard() {
   const navigate = useNavigate();
+
   const username = localStorage.getItem("username") || "Student";
+  const studentId = localStorage.getItem("studentId") || "1";
+
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadStudentData = async () => {
+      try {
+        const response = await fetch(apiUrl(`/registration/student/${studentId}`));
+        const data = await response.json();
+        setEnrollments(data || []);
+      } catch (error) {
+        console.error("Failed to load student dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStudentData();
+  }, [studentId]);
+
+  const enrolledCourses = enrollments.filter((e) => e.status === "enrolled");
+  const waitlistedCourses = enrollments.filter((e) => e.status === "waitlisted");
+
+  const enrolledCount = enrolledCourses.length;
+  const totalCredits = enrolledCourses.reduce(
+    (sum, e) => sum + Number(e.section?.course?.credits || 0),
+    0
+  );
+
+  const todaysSchedule = enrolledCourses.slice(0, 3);
 
   const cards = [
     {
@@ -30,34 +78,31 @@ export function StudentDashboard() {
     {
       icon: Bot,
       title: "AI Advisor",
-      description: "Get personalized academic guidance",
+      description: "Get academic guidance from the backend AI assistant",
       color: "from-purple-500 to-pink-500",
       path: "/student/ai-advisor",
     },
     {
       icon: User,
       title: "Profile",
-      description: "Manage your account settings",
+      description: "View your account information",
       color: "from-indigo-500 to-purple-600",
       path: "/student/profile",
     },
   ];
 
-  const upcomingClasses = [
-    { course: "CS 201", name: "Data Structures", time: "2:00 PM", room: "Room 315, Science Building" },
-    { course: "CS 301", name: "Database Systems", time: "4:00 PM", room: "Room 420, Science Building" },
-  ];
+  if (loading) {
+    return <div className="p-8 text-gray-600">Loading student dashboard...</div>;
+  }
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
-        {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-4xl text-gray-900 mb-2">Welcome back, {username}! 👋</h1>
-          <p className="text-gray-600 text-lg">Spring 2026 Semester - Computer Science Major</p>
+          <p className="text-gray-600 text-lg">Student ID: {studentId}</p>
         </div>
 
-        {/* Quick Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           {cards.map((card) => {
             const Icon = card.icon;
@@ -78,31 +123,23 @@ export function StudentDashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Quick Stats */}
           <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white">
             <div className="flex items-center justify-between mb-4">
               <TrendingUp className="w-8 h-8 opacity-80" />
               <span className="text-sm opacity-80">Academic</span>
             </div>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm opacity-90 mb-1">Current GPA</p>
-                <p className="text-4xl font-bold">3.85</p>
-              </div>
-            </div>
+            <p className="text-sm opacity-90 mb-1">GPA</p>
+            <p className="text-4xl font-bold">N/A</p>
+            <p className="text-xs opacity-80 mt-2">Calculated by grading module</p>
           </div>
 
           <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl shadow-md p-6 text-white">
             <div className="flex items-center justify-between mb-4">
               <BookOpen className="w-8 h-8 opacity-80" />
-              <span className="text-sm opacity-80">Progress</span>
+              <span className="text-sm opacity-80">Current Load</span>
             </div>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm opacity-90 mb-1">Credits Earned</p>
-                <p className="text-4xl font-bold">76</p>
-              </div>
-            </div>
+            <p className="text-sm opacity-90 mb-1">Registered Credits</p>
+            <p className="text-4xl font-bold">{totalCredits}</p>
           </div>
 
           <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl shadow-md p-6 text-white">
@@ -110,96 +147,83 @@ export function StudentDashboard() {
               <Award className="w-8 h-8 opacity-80" />
               <span className="text-sm opacity-80">Semester</span>
             </div>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm opacity-90 mb-1">Enrolled Courses</p>
-                <p className="text-4xl font-bold">4</p>
-              </div>
-            </div>
+            <p className="text-sm opacity-90 mb-1">Enrolled Courses</p>
+            <p className="text-4xl font-bold">{enrolledCount}</p>
+            <p className="text-xs opacity-80 mt-2">Waitlisted: {waitlistedCourses.length}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Today's Schedule */}
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl text-gray-900 font-semibold flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-600" />
-                Today's Schedule
+                Enrolled Sections
               </h2>
-              <span className="text-sm text-gray-500">Thursday, Apr 24</span>
             </div>
+
             <div className="space-y-4">
-              {upcomingClasses.map((cls, index) => (
-                <div key={index} className="flex items-start gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                  <div className="flex-shrink-0">
+              {todaysSchedule.length > 0 ? (
+                todaysSchedule.map((enrollment, index) => (
+                  <div key={index} className="flex items-start gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-                      <span className="text-white font-mono text-xs">{cls.course.split(' ')[1]}</span>
+                      <span className="text-white font-mono text-xs">
+                        {enrollment.section?.course?.course_code || "SEC"}
+                      </span>
+                    </div>
+
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">
+                        {enrollment.section?.course?.course_code || "Unknown Course"}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {enrollment.section?.course?.course_name || "No course name"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {enrollment.section?.schedule || "Schedule TBA"} · {enrollment.section?.room || "Room TBA"}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">{cls.course}</p>
-                        <p className="text-sm text-gray-600">{cls.name}</p>
-                        <p className="text-xs text-gray-500 mt-1">{cls.room}</p>
-                      </div>
-                      <span className="text-sm font-medium text-blue-600">{cls.time}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {upcomingClasses.length === 0 && (
-                <p className="text-center text-gray-500 py-4">No classes scheduled for today</p>
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-4">No enrolled courses found.</p>
               )}
             </div>
           </div>
 
-          {/* Important Dates & Announcements */}
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <h2 className="text-xl text-gray-900 font-semibold flex items-center gap-2 mb-6">
               <Bell className="w-5 h-5 text-orange-600" />
-              Important Dates
+              Registration Status
             </h2>
+
             <div className="space-y-4">
-              <div className="flex items-start gap-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex flex-col items-center justify-center">
-                    <span className="text-xs text-orange-700 font-medium">MAY</span>
-                    <span className="text-lg font-bold text-orange-600">01</span>
-                  </div>
+              {enrolledCount < 2 && (
+                <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
+                  <p className="text-gray-900 font-medium">Low Course Load</p>
+                  <p className="text-sm text-gray-600">
+                    You currently have fewer than 2 enrolled courses. The backend can issue a warning during the class-running period.
+                  </p>
                 </div>
-                <div>
-                  <p className="text-gray-900 font-medium">Add/Drop Deadline</p>
-                  <p className="text-sm text-gray-600">Last day to modify courses</p>
+              )}
+
+              {waitlistedCourses.length > 0 && (
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-gray-900 font-medium">Waitlist Active</p>
+                  <p className="text-sm text-gray-600">
+                    You are waitlisted for {waitlistedCourses.length} section(s). Only the instructor can admit students from the waitlist.
+                  </p>
                 </div>
-              </div>
-              
-              <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex flex-col items-center justify-center">
-                    <span className="text-xs text-blue-700 font-medium">JUN</span>
-                    <span className="text-lg font-bold text-blue-600">15</span>
-                  </div>
+              )}
+
+              {enrolledCount >= 2 && waitlistedCourses.length === 0 && (
+                <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+                  <p className="text-gray-900 font-medium">Registration Looks Good</p>
+                  <p className="text-sm text-gray-600">
+                    Your current enrolled course count satisfies the minimum course-load requirement.
+                  </p>
                 </div>
-                <div>
-                  <p className="text-gray-900 font-medium">Midterm Exams</p>
-                  <p className="text-sm text-gray-600">Week of midterm assessments</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-4 p-4 bg-purple-50 rounded-lg border border-purple-100">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex flex-col items-center justify-center">
-                    <span className="text-xs text-purple-700 font-medium">AUG</span>
-                    <span className="text-lg font-bold text-purple-600">10</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-gray-900 font-medium">Final Exams</p>
-                  <p className="text-sm text-gray-600">End of semester exams</p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
