@@ -8,6 +8,7 @@ import os
 from services.grades_service import (
     submit_grade, get_grades, get_gpa,
     recalculate_gpa, evaluate_academic_standing,
+    check_class_gpa, apply_for_graduation, review_graduation,
 )
 from services.reviews_service import submit_review
 from services.complaints_service import submit_complaint, resolve_complaint
@@ -123,6 +124,41 @@ def route_resolve_complaint(complaint_id):
         complaint_id=complaint_id,
         registrar_id=data.get("registrar_id"),
         action=data.get("action"),
+        justification=data.get("justification", ""),
+    )
+    return jsonify(result), (200 if result["success"] else 400)
+
+# Class GPA Check
+
+@grades_bp.route("/sections/<int:section_id>/class-gpa", methods=["POST"])
+def route_check_class_gpa(section_id):
+    #POST /api/sections/<section_id>/class-gpa
+    #Calculates class average GPA and flags instructor if outside range (2.5 - 3.5).
+    result = check_class_gpa(get_supabase(), section_id)
+    return jsonify(result), 200
+
+
+# Graduation
+
+@grades_bp.route("/graduation/apply", methods=["POST"])
+def route_apply_for_graduation():
+    #POST /api/graduation/apply
+    #Body: { student_id }
+    data = request.get_json()
+    result = apply_for_graduation(get_supabase(), student_id=data.get("student_id"))
+    return jsonify(result), (200 if result["success"] else 400)
+
+
+@grades_bp.route("/graduation/<int:application_id>/review", methods=["POST"])
+def route_review_graduation(application_id):
+    #POST /api/graduation/<application_id>/review
+    #Body: { registrar_id, approved (bool), justification }
+    data = request.get_json()
+    result = review_graduation(
+        get_supabase(),
+        application_id=application_id,
+        registrar_id=data.get("registrar_id"),
+        approved=data.get("approved"),
         justification=data.get("justification", ""),
     )
     return jsonify(result), (200 if result["success"] else 400)

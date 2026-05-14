@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router";
 import { GraduationCap, X, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+
 import { apiUrl } from "../utils/api";
+
 
 export function Login() {
     const navigate = useNavigate();
@@ -36,13 +38,16 @@ export function Login() {
 
         setIsLoading(true);
         try {
+
             const response = await fetch(apiUrl("/auth/login"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ identifier: username, password }),
             });
 
-            const data = await response.json();
+
+    const data = await response.json();
+
 
             if (!response.ok) {
                 const message = data.message || data.detail || "Login failed.";
@@ -50,6 +55,7 @@ export function Login() {
                 toast.error(message);
                 return;
             }
+
 
             // Store token and user info
             localStorage.setItem("access_token", data.access_token);

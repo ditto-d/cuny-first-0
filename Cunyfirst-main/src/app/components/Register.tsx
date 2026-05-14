@@ -10,6 +10,7 @@ import {
     Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+
 import { apiUrl } from "../utils/api";
 
 type ApplicationType = "student" | "instructor";
@@ -95,8 +96,10 @@ export function Register() {
         try {
             const endpoint =
                 applicationType === "student"
+
                     ? apiUrl("/applications/student")
                     : apiUrl("/applications/instructor");
+
 
             const fd = new FormData();
             fd.append("first_name", formData.firstName);

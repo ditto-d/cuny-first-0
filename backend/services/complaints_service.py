@@ -1,12 +1,10 @@
 from datetime import date, datetime
  # File: Handles complaint submission and resolution, plus related disciplinary actions.
- 
-
 # Complaint Submission and Resolution
 def submit_complaint(supabase, complainant_id: int, complainant_role: str, target_id: int, description: str) -> dict:
     if not description or not description.strip():
         return {"success": False, "message": "Complaint description is required."}
- 
+          
     if not target_id:
         return {"success": False, "message": "A target must be specified."}
  
@@ -95,9 +93,7 @@ def resolve_complaint(supabase, complaint_id: int, registrar_id: int, action: st
 # Internal helpers
 
 # Issues a warning to a student by creating a record in the disciplinary table.
-def _issue_warning(supabase, student_id: int, issued_by: int,
-                   reason: str, description: str = "") -> None:
-    """Write a Warning row to the disciplinary table."""
+def _issue_warning(supabase, student_id: int, issued_by: int, reason: str, description: str = "") -> None:
     supabase.table("disciplinary").insert(
         {
             "student_id":  student_id,
