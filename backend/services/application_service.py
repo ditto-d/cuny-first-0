@@ -127,7 +127,12 @@ class ApplicationService:
             }, 400
 
         registrar_id = review_data.get("registrar_id")
-        justification = (review_data.get("justification") or review_data.get("override_justification") or "").strip()
+        justification = (
+            review_data.get("justification")
+            or review_data.get("override_justification")
+            or review_data.get("review_justification")
+            or ""
+        ).strip()
         program_id = review_data.get("program_id")
         department_id = review_data.get("department_id")
 
@@ -326,25 +331,61 @@ class ApplicationService:
 
     @staticmethod
     def create_auth_user(email: str, password: str, application_type: str, username: str):
+        user_metadata = {
+            "role": application_type,
+            "username": username,
+            "must_change_password": True,
+        }
+
         try:
             response = supabase.auth.admin.create_user(
                 {
                     "email": email,
                     "password": password,
                     "email_confirm": True,
-                    "user_metadata": {
-                        "role": application_type,
-                        "username": username,
-                        "must_change_password": True,
-                    },
+                    "user_metadata": user_metadata,
                 }
             )
         except Exception as error:
+            message = str(error)
+            if "already been registered" in message.lower() or "already registered" in message.lower():
+                existing_user = ApplicationService.find_auth_user_by_email(email)
+                if not existing_user:
+                    raise RuntimeError(
+                        "Supabase Auth user already exists, but it could not be loaded for account creation."
+                    ) from error
+
+                try:
+                    response = supabase.auth.admin.update_user_by_id(
+                        getattr(existing_user, "id"),
+                        {
+                            "password": password,
+                            "user_metadata": user_metadata,
+                        },
+                    )
+                except Exception as update_error:
+                    raise RuntimeError(
+                        f"Supabase Auth user already exists, but resetting the temporary password failed: {update_error}"
+                    ) from update_error
+
+                return getattr(response, "user", response)
+
             raise RuntimeError(
-                "Supabase Auth user creation failed. Make sure SUPABASE_KEY is a service role key."
+                f"Supabase Auth user creation failed: {message}"
             ) from error
 
         return getattr(response, "user", response)
+
+    @staticmethod
+    def find_auth_user_by_email(email: str):
+        users = supabase.auth.admin.list_users()
+        normalized_email = email.strip().lower()
+
+        for user in users:
+            if (getattr(user, "email", "") or "").lower() == normalized_email:
+                return user
+
+        return None
 
     @staticmethod
     def create_account(application: dict, application_type: str, username: str, auth_user_id: str | None) -> dict:
