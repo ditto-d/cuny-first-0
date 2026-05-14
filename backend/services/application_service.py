@@ -366,7 +366,16 @@ class ApplicationService:
         try:
             response = supabase.table("account").insert(optional_payload).execute()
         except Exception:
-            response = supabase.table("account").insert(payload).execute()
+            try:
+                optional_without_username = {
+                    key: value
+                    for key, value in optional_payload.items()
+                    if key != "username"
+                }
+                response = supabase.table("account").insert(optional_without_username).execute()
+            except Exception:
+                legacy_payload = {key: value for key, value in payload.items() if key != "username"}
+                response = supabase.table("account").insert(legacy_payload).execute()
 
         if not response.data:
             raise RuntimeError("Account insert failed.")
@@ -441,12 +450,16 @@ class ApplicationService:
         base = "".join(char if char.isalnum() or char == "." else "" for char in base).strip(".")
         username = base or f"user{application['admission_id']}"
 
-        existing = (
-            supabase.table("account")
-            .select("username")
-            .ilike("username", f"{username}%")
-            .execute()
-        )
+        try:
+            existing = (
+                supabase.table("account")
+                .select("username")
+                .ilike("username", f"{username}%")
+                .execute()
+            )
+        except Exception:
+            return username
+
         existing_usernames = {row["username"] for row in existing.data if row.get("username")}
         if username not in existing_usernames:
             return username
