@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
-import { BookOpen, Users, FileText, Megaphone, Bot } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router";
+import { BookOpen, Bot, FileText, Megaphone, Users } from "lucide-react";
 import { toast } from "sonner";
 import { apiUrl } from "../utils/api";
 
@@ -8,9 +8,16 @@ type TabType = "courses" | "rosters" | "grades" | "announcements";
 
 export function InstructorDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabType>("courses");
+  const [searchParams] = useSearchParams();
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [gradeSelections, setGradeSelections] = useState<Record<number, string>>({});
   const [isSubmittingGrades, setIsSubmittingGrades] = useState(false);
+
+  const requestedTab = searchParams.get("tab");
+  const activeTab: TabType =
+    requestedTab === "rosters" || requestedTab === "grades" || requestedTab === "announcements"
+      ? requestedTab
+      : "courses";
 
   const instructorId = Number(localStorage.getItem("instructorId") || 1);
 
@@ -28,31 +35,22 @@ export function InstructorDashboard() {
     { id: 5, name: "David Lee", studentId: "STU005", email: "david@university.edu" },
   ];
 
-  const [gradeSelections, setGradeSelections] = useState<Record<number, string>>({});
-
   const announcements = [
     { id: "1", title: "Midterm Exam Schedule", date: "2026-04-20", course: "CS 101", content: "Midterm exam will be held on May 15th" },
     { id: "2", title: "Office Hours Change", date: "2026-04-18", course: "CS 201", content: "Office hours moved to Thursday 3-5 PM" },
     { id: "3", title: "Assignment 3 Posted", date: "2026-04-15", course: "CS 301", content: "New assignment available on the portal" },
   ];
 
-  const tabs = [
-    { id: "courses" as TabType, label: "My Courses", icon: BookOpen },
-    { id: "rosters" as TabType, label: "Student Rosters", icon: Users },
-    { id: "grades" as TabType, label: "Grade Submission", icon: FileText },
-    { id: "announcements" as TabType, label: "Announcements", icon: Megaphone },
-  ];
-
-  const selectedSectionId = courses.find((c) => c.id === selectedCourse)?.sectionId;
+  const selectedSectionId = courses.find((course) => course.id === selectedCourse)?.sectionId;
 
   const handleGradeChange = (studentId: number, grade: string) => {
-    setGradeSelections((prev) => ({ ...prev, [studentId]: grade }));
+    setGradeSelections((current) => ({ ...current, [studentId]: grade }));
   };
 
   const handleSubmitAllGrades = async () => {
     if (!selectedSectionId) return;
 
-    const toSubmit = students.filter((s) => gradeSelections[s.id]);
+    const toSubmit = students.filter((student) => gradeSelections[student.id]);
     if (toSubmit.length === 0) {
       toast.error("No grades selected. Please select at least one grade to submit.");
       return;
@@ -100,81 +98,45 @@ export function InstructorDashboard() {
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl text-gray-900 mb-2">Instructor Dashboard</h1>
-          <p className="text-gray-600">Manage your courses and students</p>
-        </div>
-        <button
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-3xl text-gray-900 mb-2">Instructor Dashboard</h1>
+            <p className="text-gray-600">Manage your courses and students</p>
+          </div>
+          <button
             onClick={() => navigate("/instructor/ai-advisor")}
-             className="mb-6 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors inline-flex items-center gap-2"
-         >
-             <Bot className="w-4 h-4" />
-               Open AI Advisor
-                </button>
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+          >
+            <Bot className="w-4 h-4" />
+            Open AI Advisor
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm mb-1">Total Courses</p>
-                <p className="text-3xl text-blue-600">{courses.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm mb-1">Total Students</p>
-                <p className="text-3xl text-green-600">75</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm mb-1">Pending Grades</p>
-                <p className="text-3xl text-orange-600">
-                  {students.filter((s) => !gradeSelections[s.id]).length}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <FileText className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
+          <SummaryCard
+            label="Total Courses"
+            value={courses.length}
+            icon={BookOpen}
+            colorClass="text-blue-600"
+            iconClass="bg-blue-100 text-blue-600"
+          />
+          <SummaryCard
+            label="Total Students"
+            value={75}
+            icon={Users}
+            colorClass="text-green-600"
+            iconClass="bg-green-100 text-green-600"
+          />
+          <SummaryCard
+            label="Pending Grades"
+            value={students.filter((student) => !gradeSelections[student.id]).length}
+            icon={FileText}
+            colorClass="text-orange-600"
+            iconClass="bg-orange-100 text-orange-600"
+          />
         </div>
 
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? "border-blue-600 text-blue-600"
-                        : "border-transparent text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div className="p-6">
             {activeTab === "courses" && (
               <div>
@@ -197,7 +159,9 @@ export function InstructorDashboard() {
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Enrolled</span>
-                          <span className="text-gray-900">{course.enrolled}/{course.capacity}</span>
+                          <span className="text-gray-900">
+                            {course.enrolled}/{course.capacity}
+                          </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
@@ -217,21 +181,11 @@ export function InstructorDashboard() {
 
             {activeTab === "rosters" && (
               <div>
-                <div className="mb-6">
-                  <label className="block text-sm text-gray-700 mb-2">Select Course</label>
-                  <select
-                    value={selectedCourse || ""}
-                    onChange={(e) => setSelectedCourse(e.target.value)}
-                    className="w-full md:w-96 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Choose a course...</option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.code} - {course.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <CourseSelect
+                  courses={courses}
+                  selectedCourse={selectedCourse}
+                  onChange={setSelectedCourse}
+                />
 
                 {selectedCourse && (
                   <div>
@@ -241,32 +195,7 @@ export function InstructorDashboard() {
                         Export to CSV
                       </button>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-sm text-gray-700">Student ID</th>
-                            <th className="px-6 py-3 text-left text-sm text-gray-700">Name</th>
-                            <th className="px-6 py-3 text-left text-sm text-gray-700">Email</th>
-                            <th className="px-6 py-3 text-left text-sm text-gray-700">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {students.map((student) => (
-                            <tr key={student.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 text-gray-900">{student.studentId}</td>
-                              <td className="px-6 py-4 text-gray-900">{student.name}</td>
-                              <td className="px-6 py-4 text-gray-600">{student.email}</td>
-                              <td className="px-6 py-4">
-                                <button className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                                  View Profile
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <StudentTable students={students} mode="roster" />
                   </div>
                 )}
               </div>
@@ -274,24 +203,14 @@ export function InstructorDashboard() {
 
             {activeTab === "grades" && (
               <div>
-                <div className="mb-6">
-                  <label className="block text-sm text-gray-700 mb-2">Select Course</label>
-                  <select
-                    value={selectedCourse || ""}
-                    onChange={(e) => {
-                      setSelectedCourse(e.target.value);
-                      setGradeSelections({});
-                    }}
-                    className="w-full md:w-96 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Choose a course...</option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.code} - {course.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <CourseSelect
+                  courses={courses}
+                  selectedCourse={selectedCourse}
+                  onChange={(courseId) => {
+                    setSelectedCourse(courseId);
+                    setGradeSelections({});
+                  }}
+                />
 
                 {selectedCourse && (
                   <div>
@@ -309,47 +228,12 @@ export function InstructorDashboard() {
                         {isSubmittingGrades ? "Submitting..." : "Submit All Grades"}
                       </button>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-sm text-gray-700">Student ID</th>
-                            <th className="px-6 py-3 text-left text-sm text-gray-700">Name</th>
-                            <th className="px-6 py-3 text-left text-sm text-gray-700">Final Grade</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {students.map((student) => (
-                            <tr key={student.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 text-gray-900">{student.studentId}</td>
-                              <td className="px-6 py-4 text-gray-900">{student.name}</td>
-                              <td className="px-6 py-4">
-                                <select
-                                  value={gradeSelections[student.id] || ""}
-                                  onChange={(e) => handleGradeChange(student.id, e.target.value)}
-                                  className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="">Select Grade</option>
-                                  <option value="A">A</option>
-                                  <option value="A-">A-</option>
-                                  <option value="B+">B+</option>
-                                  <option value="B">B</option>
-                                  <option value="B-">B-</option>
-                                  <option value="C+">C+</option>
-                                  <option value="C">C</option>
-                                  <option value="C-">C-</option>
-                                  <option value="D+">D+</option>
-                                  <option value="D">D</option>
-                                  <option value="F">F</option>
-                                  <option value="W">W</option>
-                                  <option value="I">I</option>
-                                </select>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <StudentTable
+                      students={students}
+                      mode="grades"
+                      gradeSelections={gradeSelections}
+                      onGradeChange={handleGradeChange}
+                    />
                   </div>
                 )}
               </div>
@@ -371,7 +255,7 @@ export function InstructorDashboard() {
                           <h3 className="text-gray-900 mb-1">{announcement.title}</h3>
                           <div className="flex items-center gap-3 text-sm text-gray-600">
                             <span>{announcement.course}</span>
-                            <span>•</span>
+                            <span>-</span>
                             <span>{announcement.date}</span>
                           </div>
                         </div>
@@ -393,6 +277,145 @@ export function InstructorDashboard() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+type SummaryCardProps = {
+  label: string;
+  value: number;
+  icon: typeof BookOpen;
+  colorClass: string;
+  iconClass: string;
+};
+
+function SummaryCard({ label, value, icon: Icon, colorClass, iconClass }: SummaryCardProps) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-gray-600 text-sm mb-1">{label}</p>
+          <p className={`text-3xl ${colorClass}`}>{value}</p>
+        </div>
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${iconClass}`}>
+          <Icon className="w-6 h-6" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type Course = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+function CourseSelect({
+  courses,
+  selectedCourse,
+  onChange,
+}: {
+  courses: Course[];
+  selectedCourse: string | null;
+  onChange: (courseId: string) => void;
+}) {
+  return (
+    <div className="mb-6">
+      <label className="block text-sm text-gray-700 mb-2">Select Course</label>
+      <select
+        value={selectedCourse || ""}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full md:w-96 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="">Choose a course...</option>
+        {courses.map((course) => (
+          <option key={course.id} value={course.id}>
+            {course.code} - {course.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+type Student = {
+  id: number;
+  name: string;
+  studentId: string;
+  email: string;
+};
+
+function StudentTable({
+  students,
+  mode,
+  gradeSelections = {},
+  onGradeChange,
+}: {
+  students: Student[];
+  mode: "roster" | "grades";
+  gradeSelections?: Record<number, string>;
+  onGradeChange?: (studentId: number, grade: string) => void;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th className="px-6 py-3 text-left text-sm text-gray-700">Student ID</th>
+            <th className="px-6 py-3 text-left text-sm text-gray-700">Name</th>
+            {mode === "roster" ? (
+              <>
+                <th className="px-6 py-3 text-left text-sm text-gray-700">Email</th>
+                <th className="px-6 py-3 text-left text-sm text-gray-700">Actions</th>
+              </>
+            ) : (
+              <th className="px-6 py-3 text-left text-sm text-gray-700">Final Grade</th>
+            )}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200">
+          {students.map((student) => (
+            <tr key={student.id} className="hover:bg-gray-50">
+              <td className="px-6 py-4 text-gray-900">{student.studentId}</td>
+              <td className="px-6 py-4 text-gray-900">{student.name}</td>
+              {mode === "roster" ? (
+                <>
+                  <td className="px-6 py-4 text-gray-600">{student.email}</td>
+                  <td className="px-6 py-4">
+                    <button className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                      View Profile
+                    </button>
+                  </td>
+                </>
+              ) : (
+                <td className="px-6 py-4">
+                  <select
+                    value={gradeSelections[student.id] || ""}
+                    onChange={(event) => onGradeChange?.(student.id, event.target.value)}
+                    className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Grade</option>
+                    <option value="A">A</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B">B</option>
+                    <option value="B-">B-</option>
+                    <option value="C+">C+</option>
+                    <option value="C">C</option>
+                    <option value="C-">C-</option>
+                    <option value="D+">D+</option>
+                    <option value="D">D</option>
+                    <option value="F">F</option>
+                    <option value="W">W</option>
+                    <option value="I">I</option>
+                  </select>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
